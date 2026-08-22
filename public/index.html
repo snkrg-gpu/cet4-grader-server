@@ -185,8 +185,10 @@
         <label>你的作文（120–180 词）</label>
         <textarea id="essay" placeholder="在这里粘贴你的四级作文全文…"></textarea>
         <div class="ocr-row">
-          <button class="ocr-btn" id="ocrBtn">📷 拍照上传识别</button>
-          <input type="file" id="ocrFile" accept="image/*" capture="environment" style="display:none">
+          <button class="ocr-btn" id="ocrCameraBtn">📷 拍照</button>
+          <button class="ocr-btn" id="ocrGalleryBtn">🖼️ 从相册选择</button>
+          <input type="file" id="ocrCameraFile" accept="image/*" capture="environment" style="display:none">
+          <input type="file" id="ocrGalleryFile" accept="image/*" style="display:none">
           <span class="ocr-status" id="ocrStatus"></span>
         </div>
         <img class="ocr-preview" id="ocrPreview" alt="预览">
@@ -1127,14 +1129,21 @@ function switchMode(mode){
 tabGrade.addEventListener("click", function(){ switchMode("grade"); });
 tabQuick.addEventListener("click", function(){ switchMode("quick"); });
 
-// ===== 拍照上传 + OCR =====
-var ocrBtn = document.getElementById("ocrBtn");
-var ocrFile = document.getElementById("ocrFile");
+// ===== 拍照上传 + 相册选择 + OCR =====
+var ocrCameraBtn = document.getElementById("ocrCameraBtn");
+var ocrGalleryBtn = document.getElementById("ocrGalleryBtn");
+var ocrCameraFile = document.getElementById("ocrCameraFile");
+var ocrGalleryFile = document.getElementById("ocrGalleryFile");
 var ocrStatus = document.getElementById("ocrStatus");
 var ocrPreview = document.getElementById("ocrPreview");
-ocrBtn.addEventListener("click", function(){ ocrFile.click(); });
-ocrFile.addEventListener("change", function(e){
-  var file = e.target.files[0];
+
+// 拍照按钮 → 触发带 capture 的 input（手机直接调起后置摄像头）
+ocrCameraBtn.addEventListener("click", function(){ ocrCameraFile.click(); });
+// 相册按钮 → 触发普通 input（手机弹出相册选择）
+ocrGalleryBtn.addEventListener("click", function(){ ocrGalleryFile.click(); });
+
+// 两个 input 共用同一个处理函数
+function handleOcrFile(file){
   if(!file) return;
   // 预览
   var reader = new FileReader();
@@ -1148,7 +1157,8 @@ ocrFile.addEventListener("change", function(e){
     ocrStatus.textContent = "OCR 库未加载";
     return;
   }
-  ocrBtn.disabled = true;
+  ocrCameraBtn.disabled = true;
+  ocrGalleryBtn.disabled = true;
   ocrStatus.textContent = "识别中，请稍候…";
   Tesseract.recognize(file, "eng", {
     workerPath: "ocr/worker.min.js",
@@ -1166,14 +1176,19 @@ ocrFile.addEventListener("change", function(e){
     document.getElementById("essay").value = text.trim();
     document.getElementById("wordHint").textContent = countWords(text) + " 词";
     ocrStatus.textContent = "识别完成，请检查并修正识别结果";
-    ocrBtn.disabled = false;
+    ocrCameraBtn.disabled = false;
+    ocrGalleryBtn.disabled = false;
   }).catch(function(err){
     var msg = err && err.message ? err.message : "未知错误";
     if(err && err.stack){ console.error(err.stack); }
     ocrStatus.textContent = "识别失败：" + msg;
-    ocrBtn.disabled = false;
+    ocrCameraBtn.disabled = false;
+    ocrGalleryBtn.disabled = false;
   });
-});
+}
+
+ocrCameraFile.addEventListener("change", function(e){ handleOcrFile(e.target.files[0]); });
+ocrGalleryFile.addEventListener("change", function(e){ handleOcrFile(e.target.files[0]); });
 
 // ===== 快速估分 =====
 var qTopicSel = {};  // 存储选中状态
