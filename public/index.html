@@ -1160,10 +1160,15 @@ function handleOcrFile(file){
   ocrCameraBtn.disabled = true;
   ocrGalleryBtn.disabled = true;
   ocrStatus.textContent = "识别中，请稍候…";
+  // 动态计算 base 路径（兼容根路径和子路径部署）
+  var basePath = window.location.pathname.replace(/\/[^/]*$/, "");
+  if(basePath === ""){ basePath = "/"; }
+  if(basePath.charAt(basePath.length-1) !== "/"){ basePath += "/"; }
+  var ocrBase = basePath + "ocr/";
   Tesseract.recognize(file, "eng", {
-    workerPath: "ocr/worker.min.js",
-    corePath: "ocr",
-    langPath: "ocr",
+    workerPath: ocrBase + "worker.min.js",
+    corePath: ocrBase,
+    langPath: ocrBase,
     logger: function(m){
       if(m.status === "recognizing text"){
         ocrStatus.textContent = "识别中… " + Math.round(m.progress*100) + "%";
