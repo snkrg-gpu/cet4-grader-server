@@ -1,0 +1,1321 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CET-4 作文批改助手</title>
+<script src="ocr/tesseract.min.js"></script>
+<style>
+  :root{
+    --bg:#f7f7f5;
+    --card:#ffffff;
+    --ink:#1a1a1a;
+    --muted:#8a8a86;
+    --line:#e8e7e3;
+    --accent:#2f6b4f;
+    --accent-soft:#e8f2ec;
+    --warn:#b3541e;
+    --danger:#b3261e;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:920px;margin:0 auto;padding:0 20px}
+
+  /* 密码门 */
+  #gate{min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:20px}
+  .gate-card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:40px 32px;width:100%;max-width:400px;text-align:center}
+  .gate-card .logo{font-size:28px;margin-bottom:8px}
+  .gate-card h1{font-size:20px;font-weight:600;margin-bottom:6px;letter-spacing:-0.01em}
+  .gate-card p{color:var(--muted);font-size:14px;margin-bottom:24px}
+  .gate-card input{width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:10px;font-size:16px;letter-spacing:2px;text-align:center;outline:none;transition:border-color .15s}
+  .gate-card input:focus{border-color:var(--accent)}
+  .gate-card button{width:100%;margin-top:14px;padding:12px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:500;cursor:pointer;transition:transform .1s,opacity .15s}
+  .gate-card button:hover{opacity:.92}
+  .gate-card button:active{transform:scale(.98)}
+  .gate-err{color:var(--danger);font-size:13px;margin-top:12px;min-height:18px}
+
+  /* 主界面 */
+  #app{display:none;padding:40px 0 80px}
+  header.top{display:flex;align-items:center;justify-content:space-between;margin-bottom:28px}
+  header.top .brand{font-weight:600;font-size:16px}
+  header.top .brand span{color:var(--accent)}
+  header.top .logout{font-size:13px;color:var(--muted);background:none;border:1px solid var(--line);padding:6px 14px;border-radius:8px;cursor:pointer}
+  header.top .logout:hover{color:var(--ink)}
+
+  .intro{margin-bottom:28px}
+  .intro h2{font-size:26px;font-weight:600;letter-spacing:-0.02em;margin-bottom:8px}
+  .intro p{color:var(--muted);font-size:15px;max-width:65ch}
+
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:24px;margin-bottom:20px}
+  .panel h3{font-size:15px;font-weight:600;margin-bottom:12px}
+  .panel label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+  .panel select,.panel textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:12px;font-size:15px;outline:none;font-family:inherit;transition:border-color .15s}
+  .panel select:focus,.panel textarea:focus{border-color:var(--accent)}
+  .panel textarea{min-height:220px;resize:vertical;line-height:1.7}
+  .word-hint{font-size:12px;color:var(--muted);margin-top:6px;text-align:right}
+
+  .btn-row{display:flex;gap:12px;margin-top:16px}
+  .btn{flex:1;padding:13px;border:none;border-radius:10px;font-size:15px;font-weight:500;cursor:pointer;transition:transform .1s,opacity .15s}
+  .btn:active{transform:scale(.98)}
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-primary:hover{opacity:.92}
+  .btn-ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}
+  .btn-ghost:hover{color:var(--ink)}
+
+  /* 结果 */
+  #result{display:none}
+  .score-hero{display:flex;align-items:center;gap:24px;padding:24px;border-radius:16px;background:var(--accent-soft);border:1px solid var(--line);margin-bottom:20px}
+  .score-ring{flex-shrink:0}
+  .score-ring .num{font-size:44px;font-weight:700;color:var(--accent);letter-spacing:-0.03em;line-height:1}
+  .score-ring .lbl{font-size:12px;color:var(--muted);margin-top:4px}
+  .score-meta{flex:1}
+  .score-meta .band{display:inline-block;font-size:13px;font-weight:600;padding:4px 12px;border-radius:20px;background:#fff;border:1px solid var(--line);margin-bottom:8px}
+  .score-meta p{font-size:13px;color:var(--muted)}
+  .score-meta p b{color:var(--ink);font-weight:600}
+
+  .dim-table{width:100%;border-collapse:collapse;font-size:14px}
+  .dim-table th,.dim-table td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line)}
+  .dim-table th{font-size:12px;color:var(--muted);font-weight:500}
+  .dim-table td.num{font-weight:600;color:var(--accent);white-space:nowrap}
+  .bar{height:6px;background:#eee;border-radius:3px;overflow:hidden;margin-top:6px}
+  .bar i{display:block;height:100%;background:var(--accent);border-radius:3px;transition:width .4s ease}
+
+  .sec{margin-top:20px}
+  .sec h4{font-size:14px;font-weight:600;margin-bottom:10px;padding-left:10px;border-left:3px solid var(--accent)}
+  .issue{font-size:14px;padding:8px 0;border-bottom:1px solid var(--line)}
+  .issue:last-child{border-bottom:none}
+  .issue .tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:6px;margin-right:8px;vertical-align:1px}
+  .tag.ok{background:#e8f2ec;color:var(--accent)}
+  .tag.warn{background:#fbeedf;color:var(--warn)}
+  .tag.bad{background:#fbe7e6;color:var(--danger)}
+
+  table.up{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+  table.up th,table.up td{border:1px solid var(--line);padding:8px 10px;text-align:left}
+  table.up th{background:#fafaf8;font-weight:600;font-size:12px;color:var(--muted)}
+  table.up td.orig{color:var(--danger);text-decoration:line-through}
+  table.up td.new{color:var(--accent)}
+
+  .sample{background:#fafaf8;border:1px solid var(--line);border-radius:12px;padding:18px;font-size:14px;line-height:1.8}
+  .sample .en{white-space:pre-wrap}
+  .sample .cn{margin-top:12px;padding-top:12px;border-top:1px dashed var(--line);color:var(--muted)}
+
+  .empty{padding:40px;text-align:center;color:var(--muted);font-size:14px}
+  .foot{margin-top:40px;text-align:center;color:var(--muted);font-size:12px}
+
+  /* 模式切换 */
+  .mode-tabs{display:flex;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:6px;margin-bottom:24px}
+  .mode-tab{flex:1;padding:11px;text-align:center;border-radius:8px;font-size:14px;font-weight:500;cursor:pointer;color:var(--muted);transition:background .15s,color .15s;border:none;background:transparent}
+  .mode-tab.active{background:var(--accent);color:#fff}
+  .mode-tab:hover:not(.active){color:var(--ink)}
+
+  /* 拍照上传 */
+  .ocr-row{display:flex;gap:12px;align-items:center;margin-top:12px;flex-wrap:wrap}
+  .ocr-btn{padding:11px 16px;border:1px solid var(--line);border-radius:10px;font-size:14px;cursor:pointer;background:#fff;color:var(--ink);transition:transform .1s}
+  .ocr-btn:active{transform:scale(.98)}
+  .ocr-btn:disabled{opacity:.5;cursor:not-allowed}
+  .ocr-status{font-size:13px;color:var(--muted)}
+  .ocr-preview{max-width:100%;max-height:140px;border-radius:10px;margin-top:10px;border:1px solid var(--line);display:none}
+
+  /* 快速估分 */
+  .quick-desc textarea{min-height:140px}
+  .quick-opt{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .chip{padding:8px 14px;border:1px solid var(--line);border-radius:20px;font-size:13px;cursor:pointer;background:#fff;transition:all .15s}
+  .chip.active{background:var(--accent-soft);border-color:var(--accent);color:var(--accent);font-weight:500}
+  .quick-result{background:var(--accent-soft);border:1px solid var(--line);border-radius:12px;padding:18px;font-size:14px;line-height:1.8}
+  #customTopic{width:100%;border:1px solid var(--line);border-radius:10px;padding:12px;font-size:15px;outline:none;font-family:inherit;transition:border-color .15s}
+  #customTopic:focus{border-color:var(--accent)}
+  #quickCustomTopic{width:100%;border:1px solid var(--line);border-radius:10px;padding:12px;font-size:15px;outline:none;font-family:inherit;transition:border-color .15s}
+  #quickCustomTopic:focus{border-color:var(--accent)}
+</style>
+</head>
+<body>
+
+<!-- 激活码门 -->
+<div id="gate">
+  <div class="gate-card">
+    <div class="logo">✍️</div>
+    <h1>CET-4 作文批改助手</h1>
+    <p>请输入激活码（一码一设备）</p>
+    <input type="text" id="pwd" placeholder="请输入激活码，如 XXXX-XXXX" autocomplete="off" style="letter-spacing:2px">
+    <button id="loginBtn">激活</button>
+    <div class="gate-err" id="gateErr"></div>
+  </div>
+</div>
+
+<!-- 主界面 -->
+<div id="app">
+  <div class="wrap">
+    <header class="top">
+      <div class="brand">✍️ CET-4 <span>作文批改助手</span></div>
+      <button class="logout" id="logoutBtn">退出</button>
+    </header>
+
+    <div class="intro">
+      <h2>CET-4 作文批改 & 快速估分</h2>
+      <p>本地规则引擎，离线可用。支持粘贴或拍照上传作文进行详细批改，也支持根据口头描述快速估分。</p>
+    </div>
+
+    <!-- 模式切换 -->
+    <div class="mode-tabs">
+      <button class="mode-tab active" data-mode="grade" id="tabGrade">📖 作文批改</button>
+      <button class="mode-tab" data-mode="quick" id="tabQuick">⚡ 快速估分</button>
+    </div>
+
+    <!-- 作文批改模式 -->
+    <div id="modeGrade">
+      <div class="panel">
+        <h3>1. 选择或输入题目</h3>
+        <label>选择真题（可选）</label>
+        <select id="topic">
+          <option value="">— 不选真题，自己输入题目 —</option>
+          <option value="research">试卷一：强制大学生参与科研项目（必要性+可行性）</option>
+          <option value="robot">试卷二：机器人在未来校园的应用</option>
+          <option value="campus">试卷三：如何让校园生活更便捷（提案）</option>
+        </select>
+        <label style="margin-top:12px">自定义题目（自己输入作文题目，用于审题判断）</label>
+        <input type="text" id="customTopic" placeholder="例如：Should college students do part-time jobs?">
+      </div>
+
+      <div class="panel">
+        <h3>2. 粘贴或拍照上传作文</h3>
+        <label>你的作文（120–180 词）</label>
+        <textarea id="essay" placeholder="在这里粘贴你的四级作文全文…"></textarea>
+        <div class="ocr-row">
+          <button class="ocr-btn" id="ocrBtn">📷 拍照上传识别</button>
+          <input type="file" id="ocrFile" accept="image/*" capture="environment" style="display:none">
+          <span class="ocr-status" id="ocrStatus"></span>
+        </div>
+        <img class="ocr-preview" id="ocrPreview" alt="预览">
+        <div class="word-hint" id="wordHint">0 词</div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="gradeBtn">开始批改</button>
+          <button class="btn btn-ghost" id="clearBtn">清空</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 快速估分模式 -->
+    <div id="modeQuick" style="display:none">
+      <div class="panel">
+        <h3>1. 选择或输入题目</h3>
+        <label>选择真题（可选）</label>
+        <select id="quickTopic">
+          <option value="">— 不选真题，自己输入题目 —</option>
+          <option value="research">试卷一：强制大学生参与科研项目</option>
+          <option value="robot">试卷二：机器人在未来校园的应用</option>
+          <option value="campus">试卷三：如何让校园生活更便捷（提案）</option>
+        </select>
+        <label style="margin-top:12px">自定义题目（自己输入作文题目）</label>
+        <input type="text" id="quickCustomTopic" placeholder="例如：Should college students do part-time jobs?">
+      </div>
+      <div class="panel">
+        <h3>2. 描述你的写作情况</h3>
+        <label>简要说明你写了什么、漏了什么、文笔如何（不必贴全文）</label>
+        <textarea class="quick-desc" id="quickDesc" placeholder="例如：我题目是科研项目那个，只写了必要性没写可行性，文笔很普通，大概多少分？"></textarea>
+        <label style="margin-top:14px">扣题情况（可选）</label>
+        <div class="quick-opt" id="quickTopicOpt">
+          <span class="chip" data-v="full">完全扣题</span>
+          <span class="chip" data-v="partial">基本扣题（漏一面）</span>
+          <span class="chip" data-v="off">偏题</span>
+          <span class="chip" data-v="runoff">跑题</span>
+        </div>
+        <label style="margin-top:14px">语言水平（可选）</label>
+        <div class="quick-opt" id="quickLangOpt">
+          <span class="chip" data-v="excellent">流畅有亮点</span>
+          <span class="chip" data-v="clear">清楚少量错误</span>
+          <span class="chip" data-v="unclear">错误较多</span>
+          <span class="chip" data-v="chaotic">混乱错误多</span>
+        </div>
+        <label style="margin-top:14px">字数情况（可选）</label>
+        <div class="quick-opt" id="quickWordOpt">
+          <span class="chip" data-v="ok">达标 120–180</span>
+          <span class="chip" data-v="short">略不足 100–120</span>
+          <span class="chip" data-v="veryShort">严重不足 <100</span>
+        </div>
+        <div class="btn-row">
+          <button class="btn btn-primary" id="quickBtn">快速估分</button>
+        </div>
+      </div>
+      <div id="quickResult"></div>
+    </div>
+
+    <div id="result"></div>
+
+    <div id="copyBar" style="display:none;margin-top:16px;text-align:center">
+      <button class="btn btn-ghost" id="copyBtn" style="max-width:260px">复制批改报告</button>
+    </div>
+
+    <div class="foot">本工具为估算参考，非官方成绩 · 仅供学习使用</div>
+  </div>
+</div>
+
+<script>
+// ===== 激活码 + 设备指纹 + 后端 API =====
+// 后端地址（部署后替换为实际 Vercel 域名）
+var API_BASE = "";  // 留空 = 同源（推荐，Vercel 部署后同源）
+
+// ===== 设备指纹生成 =====
+function getDeviceFingerprint(){
+  var parts = [];
+  try {
+    parts.push(navigator.userAgent || "");
+    parts.push(navigator.language || "");
+    parts.push(String(screen.width) + "x" + String(screen.height));
+    parts.push(String(screen.colorDepth));
+    parts.push(String(new Date().getTimezoneOffset()));
+    parts.push(navigator.platform || "");
+    parts.push(navigator.hardwareConcurrency || "");
+    parts.push(navigator.deviceMemory || "");
+    parts.push(navigator.maxTouchPoints || "");
+    // 语言列表
+    if(navigator.languages){ parts.push(navigator.languages.join(",")); }
+    // 时区
+    try { parts.push(Intl.DateTimeFormat().resolvedOptions().timeZone || ""); } catch(e){}
+  } catch(e){}
+  var raw = parts.join("|");
+  // 简单哈希（FNV-1a）
+  var h = 2166136261;
+  for(var i=0; i<raw.length; i++){
+    h ^= raw.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return "fp_" + (h >>> 0).toString(16);
+}
+
+// ===== 激活码门 =====
+var gate = document.getElementById("gate");
+var app = document.getElementById("app");
+var DEVICE_KEY = "cet4_device_fingerprint";
+
+function getFingerprint(){
+  var fp = null;
+  try { fp = localStorage.getItem(DEVICE_KEY); } catch(e){}
+  if(!fp){
+    fp = getDeviceFingerprint();
+    try { localStorage.setItem(DEVICE_KEY, fp); } catch(e){}
+  }
+  return fp;
+}
+
+document.getElementById("loginBtn").addEventListener("click", tryLogin);
+document.getElementById("pwd").addEventListener("keydown", function(e){ if(e.key==="Enter") tryLogin(); });
+
+function showApp(){
+  gate.style.display = "none";
+  app.style.display = "block";
+}
+
+function apiUrl(path){
+  return (API_BASE || "") + path;
+}
+
+function tryLogin(){
+  var code = document.getElementById("pwd").value.trim();
+  if(!code){
+    document.getElementById("gateErr").textContent = "请输入激活码";
+    return;
+  }
+  var fp = getFingerprint();
+  document.getElementById("loginBtn").disabled = true;
+  document.getElementById("gateErr").textContent = "正在验证...";
+
+  fetch(apiUrl("/api/activate"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ code: code, fingerprint: fp })
+  }).then(function(r){ return r.json(); }).then(function(data){
+    if(data.ok){
+      document.getElementById("gateErr").textContent = "";
+      showApp();
+    } else {
+      document.getElementById("gateErr").textContent = data.error || "激活失败";
+      document.getElementById("loginBtn").disabled = false;
+    }
+  }).catch(function(e){
+    document.getElementById("gateErr").textContent = "网络错误，请重试";
+    document.getElementById("loginBtn").disabled = false;
+  });
+}
+
+// 页面加载时：检查设备是否已激活（免登录）
+(function(){
+  var fp = getFingerprint();
+  fetch(apiUrl("/api/verify"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ fingerprint: fp })
+  }).then(function(r){ return r.json(); }).then(function(data){
+    if(data.ok){
+      showApp();
+    } else {
+      gate.style.display = "flex";
+      app.style.display = "none";
+    }
+  }).catch(function(){
+    // 网络错误，默认显示登录门
+    gate.style.display = "flex";
+    app.style.display = "none";
+  });
+})();
+
+document.getElementById("logoutBtn").addEventListener("click", function(){
+  app.style.display = "none";
+  gate.style.display = "flex";
+  document.getElementById("pwd").value = "";
+});
+
+// ===== 工具函数 =====
+function countWords(text){
+  var t = text.trim();
+  if(!t) return 0;
+  // 按空白切分，过滤纯标点
+  return t.split(/\s+/).filter(function(w){ return /[a-zA-Z0-9]/.test(w); }).length;
+}
+
+// ===== 常见简单词 → 高级替换（扩充版）=====
+var VOCAB = {
+  "important":["crucial","vital","indispensable"],
+  "good":["beneficial","favorable","advantageous"],
+  "bad":["detrimental","adverse","unfavorable"],
+  "think":["maintain","argue","contend"],
+  "many":["numerous","a multitude of","a growing number of"],
+  "because":["on account of","owing to","due to the fact that"],
+  "so":["consequently","accordingly","as a result"],
+  "but":["nevertheless","nonetheless","however"],
+  "very":["exceedingly","remarkably","tremendously"],
+  "help":["facilitate","assist","contribute to"],
+  "get":["obtain","acquire","gain"],
+  "use":["utilize","employ","make use of"],
+  "want":["desire","long for","yearn for"],
+  "problem":["issue","challenge","dilemma"],
+  "solve":["address","tackle","resolve"],
+  "show":["demonstrate","illustrate","manifest"],
+  "need":["require","demand","necessitate"],
+  "more and more":["an increasing number of","a growing number of"],
+  "like":["be fond of","be keen on","appreciate"],
+  "happy":["delighted","thrilled","content"],
+  "people":["individuals","citizens","the general public"],
+  "thing":["matter","element","aspect"],
+  "way":["approach","means","strategy"],
+  "big":["enormous","considerable","substantial"],
+  "improve":["enhance","boost","refine"],
+  "change":["transform","alter","modify"],
+  "believe":["be convinced that","hold the conviction that","deem"],
+  "know":["be aware of","be conscious of","perceive"],
+  "say":["claim","state","assert"],
+  "hard":["challenging","demanding","arduous"],
+  "easy":["effortless","straightforward","uncomplicated"],
+  "often":["frequently","repeatedly","habitually"],
+  "always":["invariably","consistently","perpetually"]
+};
+
+// ===== 常见语法错误检测（扩充版）=====
+var GRAMMAR_RULES = [
+  {re:/\bthe number of\s+\w+\s+are\b/i, msg:"'the number of' 后应接单数动词 is，而非 are（主谓不一致）", sev:"bad"},
+  {re:/\b(a lot of|many)\s+informations?\b/i, msg:"information 是不可数名词，不能加 s", sev:"bad"},
+  {re:/\badvices?\b/i, msg:"advice 是不可数名词，不能加 s", sev:"bad"},
+  {re:/\bdepend\s+in\b/i, msg:"depend 后应接 on，而非 in", sev:"warn"},
+  {re:/\bresponsible\s+of\b/i, msg:"responsible 后应接 for，而非 of", sev:"warn"},
+  {re:/\bdiscuss\s+about\b/i, msg:"discuss 是及物动词，直接接宾语，不加 about", sev:"warn"},
+  {re:/\bmore\s+(good|better|bad|worse)\b/i, msg:"比较级误用（more good → better）", sev:"warn"},
+  {re:/\bcan\s+be\s+able\s+to\b/i, msg:"can 与 be able to 重复，选其一即可", sev:"warn"},
+  {re:/\balthough\b[^,.]*\bbut\b/i, msg:"although 与 but 不能连用，删掉其中一个", sev:"bad"},
+  {re:/\bbecause\b[^,.]*\bso\b/i, msg:"because 与 so 不能连用，删掉其中一个", sev:"bad"},
+  {re:/\bI\s+am\s+agree\b/i, msg:"agree 是动词，应为 I agree，而非 I am agree", sev:"bad"},
+  {re:/\bpeople\s+is\b/i, msg:"people 是复数，应用 are，而非 is", sev:"bad"},
+  {re:/\bhe\s+don't\b|\bshe\s+don't\b|\bit\s+don't\b/i, msg:"第三人称单数应用 doesn't，而非 don't", sev:"bad"},
+  {re:/\bI\s+very\s+like\b/i, msg:"very 不能直接修饰动词，应为 I like ... very much", sev:"warn"},
+  {re:/\bmore\s+and\s+more\b/i, msg:"'more and more' 可升级为 'an increasing number of'", sev:"warn", upgrade:true},
+  {re:/\bto\s+\w+ing\b/i, msg:"不定式 to 后应接动词原形，而非 -ing 形式", sev:"warn"},
+  {re:/\b(a|an)\s+\w+\s+are\b/i, msg:"单数主语后应接 is，而非 are（主谓不一致）", sev:"warn"},
+  {re:/\bthere\s+is\s+\w+s\b/i, msg:"there is 后接复数名词应为 there are", sev:"warn"},
+  {re:/\bI\s+have\s+\w+ed\s+last\s+\w+\b/i, msg:"现在完成时不能与明确的过去时间(last...)连用，应用一般过去时", sev:"warn"},
+  {re:/\bin\s+the\s+future\b/i, msg:"'in the future' 与一般将来时搭配，注意时态一致", sev:"warn"},
+  {re:/\bmake\s+\w+\s+to\s+\w+\b/i, msg:"make sb. do sth. 中动词用原形，不加 to", sev:"warn"},
+  {re:/\blet\s+\w+\s+to\s+\w+\b/i, msg:"let sb. do sth. 中动词用原形，不加 to", sev:"warn"},
+  {re:/\b\w+\s+is\s+more\s+\w+er\b/i, msg:"比较级重复（more + -er 不能同时用）", sev:"warn"},
+  {re:/\b\w+\s+don't\s+\w+\b/i, msg:"检查主谓一致：复数主语用 don't，单数用 doesn't", sev:"warn"}
+];
+
+// ===== 简单句式检测（用于句式表达维度）=====
+function detectSimpleSentences(text){
+  var sentences = text.split(/[.!?]+/).filter(function(s){ return s.trim().length > 0; });
+  var simpleCount = 0;
+  var complexCount = 0;
+  var complexMarkers = /(\bwhich\b|\bwho\b|\bthat\b|\balthough\b|\bbecause\b|\bwhile\b|\bwhereas\b|\bnot only\b|\bhowever\b|\bmoreover\b|\btherefore\b|,)/i;
+  sentences.forEach(function(s){
+    if(complexMarkers.test(s)){ complexCount++; } else { simpleCount++; }
+  });
+  return {total:sentences.length, simple:simpleCount, complex:complexCount};
+}
+
+// ===== 五维度打分 =====
+function gradeEssay(text, topic){
+  var words = countWords(text);
+  var sentences = detectSimpleSentences(text);
+
+  // 1. 审题 (20)
+  var topicScore = 16;
+  var topicNote = "未选择题目，无法判断扣题程度，按基准分给分。";
+  if(topic === "research"){
+    var hasNec = /(necess|need|important|essential|must|should|necessary)/i.test(text);
+    var hasPrac = /(practic|feasib|possible|realistic|apply|implement|carry out)/i.test(text);
+    if(hasNec && hasPrac){ topicScore = 18; topicNote = "同时涵盖必要性(necessity)与可行性(practicality)，扣题完整。"; }
+    else if(hasNec || hasPrac){ topicScore = 12; topicNote = "只写了必要性或可行性其中一面，属于「基本扣题/内容不完整」，是主要失分点。"; }
+    else { topicScore = 8; topicNote = "未明显涉及必要性或可行性，疑似偏题。"; }
+  } else if(topic === "robot"){
+    var hasApp = /(robot|deliver|library|security|guide|service|application|apply|use)/i.test(text);
+    topicScore = hasApp ? 17 : 11;
+    topicNote = hasApp ? "围绕机器人在校园的应用展开，扣题。" : "需给出机器人的具体应用场景，避免泛泛而谈。";
+  } else if(topic === "campus"){
+    var hasProposal = /(should|propose|suggest|recommend|建议|增设|优化|improve|build)/i.test(text);
+    topicScore = hasProposal ? 17 : 11;
+    topicNote = hasProposal ? "提出具体建议，符合提案类要求。" : "需提出具体可操作的建议，避免空泛论述。";
+  } else if(topic && topic.length > 0){
+    // 自定义题目：提取题目关键词，判断作文是否围绕这些关键词展开
+    var keywords = topic.toLowerCase().replace(/[^a-z\s]/g, " ").split(/\s+/).filter(function(w){ return w.length > 3 && !/^(the|and|for|with|that|this|about|should|what|your|you|are|was|were|have|has|will|would|can|could|not|from|into|their|they|them|which|when|where|how|why|does|do|did)$/i.test(w); });
+    var lowerText = text.toLowerCase();
+    var matched = 0;
+    keywords.forEach(function(kw){
+      if(lowerText.indexOf(kw) !== -1) matched++;
+    });
+    var matchRatio = keywords.length > 0 ? matched / keywords.length : 0;
+    if(matchRatio >= 0.6){ topicScore = 17; topicNote = "围绕自定义题目「" + topic + "」展开，关键词覆盖率较高，扣题。"; }
+    else if(matchRatio >= 0.3){ topicScore = 12; topicNote = "部分涉及自定义题目「" + topic + "」的关键词，但覆盖不全，可能存在偏题。"; }
+    else { topicScore = 8; topicNote = "与自定义题目「" + topic + "」关联度低，可能跑题，需检查是否回应了题目要求。"; }
+  }
+
+  // 2. 文章结构 (20)
+  var paragraphs = text.split(/\n\s*\n/).filter(function(p){ return p.trim().length > 0; });
+  var structScore = 14;
+  if(paragraphs.length >= 3){ structScore = 17; }
+  else if(paragraphs.length === 2){ structScore = 13; }
+  else if(paragraphs.length === 1){ structScore = 9; }
+  var structNote = paragraphs.length >= 3 ? "三段式结构清晰（开头-主体-结尾）。" :
+                   paragraphs.length === 2 ? "建议补齐三段式结构（开头-主体-结尾）。" :
+                   "缺少段落划分，建议采用标准三段式结构。";
+
+  // 3. 句式表达 (20)
+  var ratio = sentences.total > 0 ? sentences.complex / sentences.total : 0;
+  var sentScore = 12;
+  if(ratio >= 0.6) sentScore = 17;
+  else if(ratio >= 0.4) sentScore = 15;
+  else if(ratio >= 0.2) sentScore = 12;
+  else sentScore = 9;
+  var sentNote = "长句占比约 " + Math.round(ratio*100) + "%" + (ratio < 0.4 ? "，句式偏单一，建议增加复合句、倒装句等。" : "，句式有一定变化。");
+
+  // 4. 内容逻辑 (20)
+  var hasExample = /(for example|for instance|such as|take .* as an example|比如|例如)/i.test(text);
+  var logicScore = hasExample ? 15 : 11;
+  var logicNote = hasExample ? "有具体例子支撑论点。" : "建议用具体例子支撑论点，避免空泛论述。";
+
+  // 5. 整体结构 (20)
+  var hasTrans = /(however|moreover|furthermore|therefore|in addition|on the other hand|in conclusion|first|second|finally)/i.test(text);
+  var overallScore = hasTrans ? 15 : 11;
+  var overallNote = hasTrans ? "有过渡词，段落衔接较好。" : "建议增加过渡词（如 however, moreover, therefore）增强连贯性。";
+
+  // 字数扣分
+  var wordPenalty = 0;
+  var wordNote = words + " 词（标准 120–180 词）。";
+  if(words < 90){ wordPenalty = 8; wordNote += " 严重不足，直接落入低分档。"; }
+  else if(words < 100){ wordPenalty = 3; wordNote += " 不足，扣 3 分。"; }
+  else if(words < 120){ wordPenalty = 1; wordNote += " 略不足，扣 1 分。"; }
+  else if(words > 180){ wordNote += " 超出标准，可能影响卷面分。"; }
+  else { wordNote += " 字数达标。"; }
+
+  var rawTotal = topicScore + structScore + sentScore + logicScore + overallScore;
+  var total = Math.max(0, rawTotal - wordPenalty);
+
+  return {
+    words: words, wordPenalty: wordPenalty, wordNote: wordNote,
+    topicScore: topicScore, topicNote: topicNote,
+    structScore: structScore, structNote: structNote,
+    sentScore: sentScore, sentNote: sentNote,
+    logicScore: logicScore, logicNote: logicNote,
+    overallScore: overallScore, overallNote: overallNote,
+    total: total, rawTotal: rawTotal
+  };
+}
+
+// ===== 词汇升级检测 =====
+function findVocabUpgrades(text){
+  var lower = text.toLowerCase();
+  var found = [];
+  for(var key in VOCAB){
+    if(lower.indexOf(key) !== -1){
+      found.push({word:key, repl:VOCAB[key]});
+      if(found.length >= 5) break;
+    }
+  }
+  return found;
+}
+
+// ===== 语法错误检测 =====
+function findGrammarIssues(text){
+  var issues = [];
+  GRAMMAR_RULES.forEach(function(rule){
+    if(rule.re.test(text)){
+      issues.push({msg:rule.msg, sev:rule.sev});
+    }
+  });
+  return issues;
+}
+
+// ===== 逐句拆分 =====
+function splitSentences(text){
+  return text.split(/(?<=[.!?])\s+/).filter(function(s){ return s.trim().length > 0; });
+}
+
+// ===== 逐句点评（新模块）=====
+function analyzeSentences(text){
+  var sentences = splitSentences(text);
+  var result = [];
+  sentences.forEach(function(s, idx){
+    var trimmed = s.trim();
+    var words = trimmed.split(/\s+/).length;
+    var issues = [];
+    var highlights = [];
+    var grammarNote = "";
+    var rewrite = "";
+
+    // 检测语法错误
+    GRAMMAR_RULES.forEach(function(rule){
+      if(rule.re.test(trimmed)){
+        issues.push(rule.msg);
+      }
+    });
+
+    // 语法专项分析
+    if(/\b(has|have|had)\s+\w+ed\b/i.test(trimmed) && !/\b(has|have|had)\s+(been|\w+)\b/i.test(trimmed)){
+      // 检查完成时
+    }
+    if(/\b\w+\s+(is|are|was|were)\s+\w+ing\b/i.test(trimmed)){
+      grammarNote = "进行时态使用正确";
+    }
+    if(/\b\w+s\s+is\b|\b\w+s\s+has\b/i.test(trimmed)){
+      issues.push("复数主语与单数动词搭配，可能存在主谓不一致");
+    }
+    if(/\b\w+\s+are\s+\w+ed\b/i.test(trimmed)){
+      grammarNote = "被动语态（be + 过去分词）";
+    }
+
+    // 检测亮点
+    if(/(not only|only in this way|under no circumstances|it is .* that|were it not|rarely|seldom)/i.test(trimmed)){
+      highlights.push("高级句式：倒装/强调句");
+    }
+    if(/(which|who|that|although|because|while|whereas)/i.test(trimmed)){
+      highlights.push("复合句：使用从句");
+    }
+    if(/(moreover|however|therefore|furthermore|in addition|on the other hand|in conclusion)/i.test(trimmed)){
+      highlights.push("使用了过渡词，衔接自然");
+    }
+    if(/(for example|for instance|such as)/i.test(trimmed)){
+      highlights.push("有具体例证支撑");
+    }
+
+    // 判断句子类型
+    var type = "简单句";
+    if(/(which|who|that|although|because)/i.test(trimmed)){ type = "复合句"; }
+    else if(/(and|but|so|,)/i.test(trimmed)){ type = "并列句"; }
+    if(words > 25){ type += "（偏长，建议拆分）"; }
+    else if(words < 5){ type += "（偏短/可能不完整）"; }
+
+    // 生成优化改写建议
+    rewrite = suggestRewrite(trimmed);
+
+    result.push({
+      idx: idx+1,
+      text: trimmed,
+      words: words,
+      type: type,
+      issues: issues,
+      highlights: highlights,
+      grammarNote: grammarNote,
+      rewrite: rewrite
+    });
+  });
+  return result;
+}
+
+// ===== 单句优化改写建议 =====
+function suggestRewrite(sentence){
+  var s = sentence;
+  var tips = [];
+
+  // 简单句 → 复合句/高级句
+  if(/\bI\s+think\b/i.test(s)){
+    tips.push("把 'I think' 升级为 'It is my firm belief that...' 或 'I am convinced that...'（强调句）");
+  }
+  if(/\bwe\s+should\b/i.test(s)){
+    tips.push("把 'we should...' 升级为被动语态 'Attention should be paid to...' 或 'Measures should be taken to...'");
+  }
+  if(/\bvery\s+\w+/i.test(s)){
+    tips.push("用 'remarkably / exceedingly / tremendously' 替代 'very'，提升词汇档次");
+  }
+  if(/\bbecause\b/i.test(s)){
+    tips.push("把 'because' 升级为 'on account of / owing to / due to the fact that'");
+  }
+  if(/\bmore\s+and\s+more\b/i.test(s)){
+    tips.push("把 'more and more' 升级为 'an increasing number of' 或 'a growing number of'");
+  }
+  if(/\bbut\b/i.test(s)){
+    tips.push("把 'but' 升级为 'however / nevertheless / nonetheless'");
+  }
+  if(/\bso\b/i.test(s)){
+    tips.push("把 'so' 升级为 'consequently / therefore / as a result'");
+  }
+  if(/\bcan\b/i.test(s) && /\bwe\b/i.test(s)){
+    tips.push("把 'we can...' 升级为倒装句 'Only in this way can we...'");
+  }
+  if(/\bif\b/i.test(s)){
+    tips.push("可尝试虚拟语气倒装：'Were it not for...' 或 'Should...occur'");
+  }
+  if(/\bget\b/i.test(s)){
+    tips.push("把 'get' 升级为 'obtain / acquire / gain'");
+  }
+  if(/\ba\s+lot\s+of\b|\bmany\b/i.test(s)){
+    tips.push("把 'many / a lot of' 升级为 'numerous / a multitude of'");
+  }
+
+  if(tips.length === 0){
+    // 没有明显可升级点，检查是否偏长
+    if(s.split(/\s+/).length > 25){
+      tips.push("句子偏长，建议拆分成两个短句，避免冗长");
+    } else {
+      tips.push("句式已较自然，可保持；如需提升可在句首加过渡词（如 Moreover / However / In addition）");
+    }
+  }
+  return tips;
+}
+
+// ===== 词汇统计（新模块）=====
+function analyzeVocabulary(text){
+  var lower = text.toLowerCase();
+  var words = lower.match(/[a-z]+/g) || [];
+  var total = words.length;
+  var simpleCount = 0;
+  var advancedCount = 0;
+  var simpleFound = [];
+
+  // 统计简单词
+  for(var key in VOCAB){
+    var re = new RegExp("\\b" + key.replace(/\s+/g, "\\s+") + "\\b", "g");
+    var matches = lower.match(re);
+    if(matches){
+      simpleCount += matches.length;
+      simpleFound.push({word:key, count:matches.length});
+    }
+  }
+
+  // 统计高级词（预定义高级词表）
+  var advancedList = ["crucial","vital","indispensable","beneficial","detrimental","numerous","consequently","nevertheless","utilize","facilitate","demonstrate","enhance","transform","significant","essential","fundamental","remarkable","substantial","comprehensive","profound"];
+  advancedList.forEach(function(w){
+    var re = new RegExp("\\b" + w + "\\b", "g");
+    var m = lower.match(re);
+    if(m) advancedCount += m.length;
+  });
+
+  // 重复用词检测
+  var freq = {};
+  words.forEach(function(w){
+    if(w.length > 3){ freq[w] = (freq[w] || 0) + 1; }
+  });
+  var repeated = [];
+  for(var w in freq){
+    if(freq[w] >= 3){ repeated.push({word:w, count:freq[w]}); }
+  }
+  repeated.sort(function(a,b){ return b.count - a.count; });
+  repeated = repeated.slice(0, 8);
+
+  return {
+    total: total,
+    simpleCount: simpleCount,
+    advancedCount: advancedCount,
+    simpleFound: simpleFound.slice(0, 6),
+    repeated: repeated
+  };
+}
+
+// ===== 句型升级（新模块）=====
+function findSentenceUpgrades(text){
+  var sentences = splitSentences(text);
+  var upgrades = [];
+  var patterns = [
+    {re:/\b(we|people|students)\s+should\s+([a-z]+)/i, tip:"被动语态升级", example:"It is advisable that ... be done / Attention should be paid to ..."},
+    {re:/\bI\s+think\b/i, tip:"强调句升级", example:"It is my firm belief that ... / I am convinced that ..."},
+    {re:/\bvery\s+([a-z]+)\b/i, tip:"高级词汇替换", example:"用 remarkably / exceedingly / tremendously 替代 very"},
+    {re:/\bbecause\b/i, tip:"介词短语升级", example:"用 on account of / owing to / due to 替代 because"},
+    {re:/\bif\s+we\s+/i, tip:"倒装句升级", example:"Were it not for ... / Should ... occur, ..."},
+    {re:/\b(we|people)\s+can\s+([a-z]+)\b/i, tip:"倒装句升级", example:"Only in this way can we ..."}
+  ];
+  sentences.forEach(function(s){
+    var trimmed = s.trim();
+    patterns.forEach(function(p){
+      if(p.re.test(trimmed) && upgrades.length < 5){
+        // 避免重复
+        var exists = upgrades.some(function(u){ return u.tip === p.tip; });
+        if(!exists){
+          upgrades.push({sentence: trimmed.slice(0, 60) + (trimmed.length > 60 ? "..." : ""), tip: p.tip, example: p.example});
+        }
+      }
+    });
+  });
+  return upgrades;
+}
+
+// ===== 分数档位 =====
+function getBand(total){
+  if(total >= 90) return {band:"14分档", score:"13–15 分", desc:"优秀，稳进高分档"};
+  if(total >= 80) return {band:"11分档", score:"10–12 分", desc:"良好，过线稳妥"};
+  if(total >= 70) return {band:"8分档", score:"7–9 分", desc:"及格，需改进"};
+  if(total >= 60) return {band:"5分档", score:"4–6 分", desc:"偏弱，明显不足"};
+  return {band:"2分档", score:"1–3 分", desc:"不合格，需大幅修改"};
+}
+
+// ===== 老师式改进建议（根据当前档次往前进）=====
+function buildTeacherSuggestions(res, issues){
+  var band = getBand(res.total);
+  var suggestions = [];
+
+  // 先点出核心短板
+  var weakDims = [];
+  if(res.topicScore < 15) weakDims.push("审题");
+  if(res.structScore < 15) weakDims.push("文章结构");
+  if(res.sentScore < 15) weakDims.push("句式表达");
+  if(res.logicScore < 15) weakDims.push("内容逻辑");
+  if(res.overallScore < 15) weakDims.push("整体连贯");
+  if(res.wordPenalty > 0) weakDims.push("字数");
+
+  // 根据档次给出“冲下一档”的具体路径
+  if(band.band === "2分档"){
+    suggestions.push({title:"当务之急：先解决跑题和基础语法", detail:"2分档说明作文方向和语言都有大问题。第一步不是追求高级表达，而是确保「读懂题目、写对最基本的主谓宾」。建议：1) 重新审题，用一句话写清你的核心观点；2) 检查每句话是否都有主语和谓语，避免句子支离破碎；3) 把字数先写到 90 词以上，脱离最差档。"});
+    suggestions.push({title:"冲 5分档的关键", detail:"5分档要求「基本不跑题、表达虽乱但能读懂大意」。你只需做到：围绕题目写（不偏题）、句子基本完整、用最熟悉的简单句。不要追求长难句，先求「对」。"});
+  } else if(band.band === "5分档"){
+    suggestions.push({title:"冲 8分档（及格档）的关键", detail:"8分档要求「基本扣题 + 表达基本清楚 + 少量严重错误」。你现在离及格差在：" + (weakDims.length ? weakDims.join("、") + " 这几项还偏弱" : "整体还需更稳") + "。建议优先：1) 确保扣题，把题目要求的两三个方面都写到；2) 减少严重语法错误（主谓一致、时态混乱）；3) 字数补到 120 词以上。"});
+    suggestions.push({title:"具体动作", detail:"每写完一句，检查主语和动词是否一致；把跑题的内容删掉；用 2-3 个简单过渡词（First / Second / Finally）把段落串起来。"});
+  } else if(band.band === "8分档"){
+    suggestions.push({title:"冲 11分档（稳妥过线档）的关键", detail:"11分档要求「扣题 + 表达清楚 + 少量语法错误」。你已经及格，差的是「清楚」和「连贯」。建议：1) 强化三段式结构，每段有明确的主题句；2) 把语法错误降到「少量」（重点改主谓一致和时态）；3) 增加 2-3 个过渡词让段落衔接更顺。"});
+    suggestions.push({title:"冲 14分档的方向", detail:"14分档需要「句式灵活有亮点」。在保证正确的基础上，试着用 1-2 个倒装句或强调句（如 Only in this way can we...），并把简单词换成高级词（important → crucial）。"});
+  } else if(band.band === "11分档"){
+    suggestions.push({title:"冲 14分档（高分档）的关键", detail:"你已经过线，差的是「亮点」。14分档要求「完全扣题 + 表达流畅 + 句式灵活有亮点」。建议：1) 加入 1-2 个高级句式（倒装、强调、分词短语）；2) 用具体例子支撑论点（不要空泛）；3) 把常见简单词替换成高级词，提升语言档次。"});
+    suggestions.push({title:"保持优势", detail:"你的扣题和结构已不错，重点打磨「语言丰富度」。可参考下方的高分范文，学习它的句式变化和词汇选择。"});
+  } else {
+    suggestions.push({title:"保持高分状态", detail:"你已处于 14 分档，整体优秀。只需注意：1) 避免个别小瑕疵（冠词、介词）；2) 保持句式多样，不要通篇只用一种句型；3) 字数控制在 120-180 词，不要超太多。"});
+  }
+
+  // 通用补充（针对具体短板）
+  if(res.wordPenalty > 0){
+    suggestions.push({title:"字数问题（优先解决）", detail:"字数不足是硬性扣分。当前 " + res.words + " 词，建议补充到 120-180 词。可以为主体段补充一个具体例子，或增加一个支撑论点。"});
+  }
+  if(issues.length > 0){
+    suggestions.push({title:"语法错误清单", detail:"检测到以下问题需要修正：" + issues.map(function(i){ return i.msg; }).join("；") + "。建议逐个改正后再读一遍。"});
+  }
+
+  return suggestions;
+}
+
+// ===== 生成纯文本报告 =====
+function buildReportText(res, vocab, issues, topic, text){
+  var band = getBand(res.total);
+  var lines = [];
+  lines.push("===== CET-4 作文批改报告 =====");
+  lines.push("总分：" + res.total + " / 100（" + band.band + "，" + band.score + "）");
+  lines.push("官方等效：约 " + Math.round(res.total*1.065) + " / 106.5 分");
+  if(topic) lines.push("题目：" + topic);
+  lines.push("");
+  lines.push("【字数】" + res.wordNote);
+  lines.push("");
+  lines.push("【五维度评分】");
+  lines.push("审题：" + res.topicScore + "/20 —— " + res.topicNote);
+  lines.push("文章结构：" + res.structScore + "/20 —— " + res.structNote);
+  lines.push("句式表达：" + res.sentScore + "/20 —— " + res.sentNote);
+  lines.push("内容逻辑：" + res.logicScore + "/20 —— " + res.logicNote);
+  lines.push("整体结构：" + res.overallScore + "/20 —— " + res.overallNote);
+  lines.push("");
+  lines.push("【常见失分点】");
+  if(issues.length === 0){ lines.push("- 未检测到明显语法错误"); }
+  else { issues.forEach(function(it){ lines.push("- " + it.msg); }); }
+  lines.push("");
+
+  // 逐句点评
+  var sentAnalysis = analyzeSentences(text);
+  if(sentAnalysis.length > 0){
+    lines.push("【逐句点评（语法+句型+优化）】");
+    sentAnalysis.forEach(function(sa){
+      lines.push("第" + sa.idx + "句（" + sa.type + "，" + sa.words + "词）：" + sa.text);
+      if(sa.grammarNote) lines.push("  语法 - " + sa.grammarNote);
+      sa.highlights.forEach(function(h){ lines.push("  亮点 - " + h); });
+      sa.issues.forEach(function(iss){ lines.push("  问题 - " + iss); });
+      sa.rewrite.forEach(function(rw){ lines.push("  优化 - " + rw); });
+    });
+    lines.push("");
+  }
+
+  // 词汇统计
+  var vocabStat = analyzeVocabulary(text);
+  lines.push("【词汇统计】");
+  lines.push("总词数：" + vocabStat.total + " · 简单词：" + vocabStat.simpleCount + " · 高级词：" + vocabStat.advancedCount);
+  if(vocabStat.repeated.length > 0){
+    lines.push("重复用词：" + vocabStat.repeated.map(function(r){ return r.word + "(" + r.count + "次)"; }).join("、"));
+  }
+  lines.push("");
+
+  if(vocab.length > 0){
+    lines.push("【词汇升级替换】");
+    vocab.forEach(function(v){ lines.push("- " + v.word + " → " + v.repl.join(" / ")); });
+    lines.push("");
+  }
+
+  // 句型升级
+  var sentUpgrades = findSentenceUpgrades(text);
+  if(sentUpgrades.length > 0){
+    lines.push("【句型升级建议】");
+    sentUpgrades.forEach(function(su){ lines.push("- " + su.tip + "：" + su.example); });
+    lines.push("");
+  }
+
+  // 改进建议
+  var teacherSuggestions = buildTeacherSuggestions(res, issues);
+  lines.push("【老师建议（如何冲更高档次）】");
+  teacherSuggestions.forEach(function(ts, i){
+    lines.push((i+1) + ". " + ts.title);
+    lines.push("   " + ts.detail);
+  });
+  lines.push("");
+
+  if(topic && SAMPLES[topic]){
+    lines.push("【高分范文】");
+    lines.push(SAMPLES[topic].en);
+  }
+  lines.push("");
+  lines.push("—— 本报告由 CET-4 作文批改助手生成，仅供学习参考 ——");
+  return lines.join("\n");
+}
+
+// ===== 复制报告 =====
+document.getElementById("copyBtn").addEventListener("click", function(){
+  var txt = window.__reportText || "";
+  if(!txt) return;
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(function(){
+      var b = document.getElementById("copyBtn");
+      b.textContent = "已复制";
+      setTimeout(function(){ b.textContent = "复制批改报告"; }, 1500);
+    }).catch(function(){ fallbackCopy(txt); });
+  } else {
+    fallbackCopy(txt);
+  }
+});
+function fallbackCopy(txt){
+  var ta = document.createElement("textarea");
+  ta.value = txt;
+  document.body.appendChild(ta);
+  ta.select();
+  try{ document.execCommand("copy"); }catch(e){}
+  document.body.removeChild(ta);
+  var b = document.getElementById("copyBtn");
+  b.textContent = "已复制";
+  setTimeout(function(){ b.textContent = "复制批改报告"; }, 1500);
+}
+
+// ===== 高分范文库 =====
+var SAMPLES = {
+  "research": {
+    en: "Nowadays, there is a growing debate over whether university students should be required to participate in at least one research project. From my perspective, this proposal is both necessary and practical.\n\nOn the one hand, engaging in research is of great significance. Not only does it equip students with critical thinking, but it also cultivates their ability to solve real-world problems independently. On the other hand, the proposal is highly feasible. With abundant academic resources and experienced supervisors available on campus, students can carry out research projects without excessive difficulty.\n\nIn conclusion, it is advisable for universities to encourage students to take part in research. Only in this way can students gain both knowledge and practical skills, which will benefit their future careers.",
+    cn: "如今，关于大学生是否应被要求至少参与一个科研项目，讨论日益增多。在我看来，这一提议既必要又可行。\n\n一方面，参与科研意义重大。它不仅能培养学生的批判性思维，还能锻炼其独立解决实际问题的能力。另一方面，这一提议非常可行。校园内有丰富的学术资源和经验丰富的导师，学生完成科研项目并不十分困难。\n\n总之，大学应鼓励学生参与科研。只有这样，学生才能既获得知识又掌握实践技能，从而受益于未来的职业发展。"
+  },
+  "robot": {
+    en: "With the rapid development of technology, robots are expected to play an increasingly important role on campus in the future.\n\nFirst and foremost, robots can be employed to deliver food and packages, which greatly saves students' time. In addition, they can serve as library assistants, helping students locate books and manage borrowing records efficiently. Moreover, robots equipped with artificial intelligence can answer students' questions around the clock, providing timely academic support.\n\nIn conclusion, the future applications of robots on campus are both diverse and promising. It is my firm belief that with proper management, robots will make campus life more convenient and enjoyable.",
+    cn: "随着科技的快速发展，未来机器人在校园中将扮演越来越重要的角色。\n\n首先，机器人可用于送餐和送快递，大大节省学生时间。其次，它们可以担任图书管理员，帮助学生高效查找书籍和管理借阅记录。此外，配备人工智能的机器人可以全天候解答学生疑问，提供及时的学业支持。\n\n总之，机器人在校园的未来应用既多样又充满前景。我坚信，在合理管理下，机器人将使校园生活更加便捷和愉快。"
+  },
+  "campus": {
+    en: "It is widely acknowledged that a convenient campus life contributes greatly to students' academic performance and well-being. Therefore, I would like to put forward several proposals.\n\nFirst, the university should add more self-study rooms, since the existing ones are often overcrowded during exam periods. Second, the canteen could extend its opening hours and offer more diverse dishes to meet students' needs. Last but not least, the course selection system should be optimized so that students can choose courses more smoothly and efficiently.\n\nIn conclusion, these practical measures, if implemented, would make campus life considerably easier. Only by attending to students' real needs can the university create a more comfortable learning environment.",
+    cn: "众所周知，便捷的校园生活对学生的学业成绩和身心健康都大有裨益。因此，我想提出几点建议。\n\n首先，学校应增设更多自习室，因为现有的自习室在考试期间常常人满为患。其次，食堂可以延长营业时间并提供更多样化的菜品，以满足学生需求。最后，选课系统应进行优化，使学生能够更顺畅、高效地选课。\n\n总之，这些切实可行的措施一旦实施，将大大便利校园生活。只有关注学生的真实需求，学校才能营造更舒适的学习环境。"
+  }
+};
+
+// ===== 渲染结果 =====
+function renderResult(res, vocab, issues, topic, text){
+  var band = getBand(res.total);
+  var html = "";
+
+  // 分数总览
+  html += '<div class="score-hero">';
+  html += '<div class="score-ring"><div class="num">' + res.total + '</div><div class="lbl">/ 100 分</div></div>';
+  html += '<div class="score-meta">';
+  html += '<span class="band">' + band.band + ' · ' + band.score + '</span>';
+  html += '<p><b>' + band.desc + '</b></p>';
+  html += '<p>' + res.wordNote + '</p>';
+  html += '<p>官方等效：约 ' + Math.round(res.total*1.065) + ' / 106.5 分</p>';
+  html += '</div></div>';
+
+  // 五维度
+  html += '<div class="panel"><h3>五维度评分</h3><table class="dim-table">';
+  var dims = [
+    ["审题", res.topicScore, res.topicNote],
+    ["文章结构", res.structScore, res.structNote],
+    ["句式表达", res.sentScore, res.sentNote],
+    ["内容逻辑", res.logicScore, res.logicNote],
+    ["整体结构", res.overallScore, res.overallNote]
+  ];
+  dims.forEach(function(d){
+    var pct = Math.round(d[1]/20*100);
+    html += '<tr><td>' + d[0] + '</td><td class="num">' + d[1] + '/20</td>';
+    html += '<td><div class="bar"><i style="width:' + pct + '%"></i></div><div style="font-size:12px;color:#8a8a86;margin-top:4px">' + d[2] + '</div></td></tr>';
+  });
+  html += '</table></div>';
+
+  // 常见失分点
+  html += '<div class="panel sec"><h3>常见失分点检查</h3>';
+  html += '<div class="issue"><span class="tag ' + (res.wordPenalty>0?'warn':'ok') + '">字数</span>' + res.wordNote + '</div>';
+  if(issues.length === 0){
+    html += '<div class="issue"><span class="tag ok">语法</span>未检测到明显语法错误</div>';
+  } else {
+    issues.forEach(function(it){
+      html += '<div class="issue"><span class="tag ' + it.sev + '">语法</span>' + it.msg + '</div>';
+    });
+  }
+  html += '</div>';
+
+  // 词汇升级
+  if(vocab.length > 0){
+    html += '<div class="panel sec"><h3>词汇升级替换</h3><table class="up"><tr><th>原文用词</th><th>高级替换</th></tr>';
+    vocab.forEach(function(v){
+      html += '<tr><td class="orig">' + v.word + '</td><td class="new">' + v.repl.join(' / ') + '</td></tr>';
+    });
+    html += '</table></div>';
+  }
+
+  // 逐句点评（新模块）
+  var sentAnalysis = analyzeSentences(text);
+  if(sentAnalysis.length > 0){
+    html += '<div class="panel sec"><h3>逐句点评（语法 + 句型 + 优化）</h3>';
+    sentAnalysis.forEach(function(sa){
+      html += '<div class="issue" style="padding:12px 0">';
+      html += '<div style="font-size:13px;color:#8a8a86;margin-bottom:4px">第 ' + sa.idx + ' 句 · <b>' + sa.type + '</b> · ' + sa.words + ' 词</div>';
+      html += '<div style="font-size:14px;line-height:1.6">' + sa.text + '</div>';
+      if(sa.grammarNote){
+        html += '<div style="margin-top:4px"><span class="tag ok">语法</span>' + sa.grammarNote + '</div>';
+      }
+      if(sa.highlights.length > 0){
+        sa.highlights.forEach(function(h){
+          html += '<div style="margin-top:4px"><span class="tag ok">亮点</span>' + h + '</div>';
+        });
+      }
+      if(sa.issues.length > 0){
+        sa.issues.forEach(function(iss){
+          html += '<div style="margin-top:4px"><span class="tag warn">问题</span>' + iss + '</div>';
+        });
+      }
+      if(sa.rewrite && sa.rewrite.length > 0){
+        sa.rewrite.forEach(function(rw){
+          html += '<div style="margin-top:4px"><span class="tag ok" style="background:#eef3ff;color:#3b5bdb">优化</span>' + rw + '</div>';
+        });
+      }
+      if(sa.highlights.length === 0 && sa.issues.length === 0 && !sa.grammarNote){
+        html += '<div style="margin-top:4px;color:#8a8a86;font-size:13px">无明显问题</div>';
+      }
+      html += '</div>';
+    });
+    html += '</div>';
+  }
+
+  // 词汇统计（新模块）
+  var vocabStat = analyzeVocabulary(text);
+  html += '<div class="panel sec"><h3>词汇统计</h3>';
+  html += '<div style="font-size:14px;margin-bottom:10px">总词数：<b>' + vocabStat.total + '</b> · 简单词：<b style="color:var(--warn)">' + vocabStat.simpleCount + '</b> · 高级词：<b style="color:var(--accent)">' + vocabStat.advancedCount + '</b></div>';
+  if(vocabStat.simpleFound.length > 0){
+    html += '<div style="font-size:13px;color:#8a8a86;margin-bottom:6px">检测到的简单词（建议升级）：</div>';
+    vocabStat.simpleFound.forEach(function(sf){
+      html += '<div style="font-size:13px;margin-bottom:4px"><span class="tag warn">' + sf.word + '</span> 出现 ' + sf.count + ' 次 → ' + (VOCAB[sf.word] ? VOCAB[sf.word].join(' / ') : '') + '</div>';
+    });
+  }
+  if(vocabStat.repeated.length > 0){
+    html += '<div style="font-size:13px;color:#8a8a86;margin:10px 0 6px">重复用词（建议替换避免单调）：</div>';
+    vocabStat.repeated.forEach(function(r){
+      html += '<div style="font-size:13px;margin-bottom:4px"><span class="tag warn">' + r.word + '</span> 出现 ' + r.count + ' 次</div>';
+    });
+  }
+  html += '</div>';
+
+  // 句型升级建议（新模块）
+  var sentUpgrades = findSentenceUpgrades(text);
+  if(sentUpgrades.length > 0){
+    html += '<div class="panel sec"><h3>句型升级建议</h3><table class="up"><tr><th>原文句子</th><th>升级技巧</th><th>示例</th></tr>';
+    sentUpgrades.forEach(function(su){
+      html += '<tr><td>' + su.sentence + '</td><td class="new">' + su.tip + '</td><td style="font-size:12px;color:#8a8a86">' + su.example + '</td></tr>';
+    });
+    html += '</table></div>';
+  }
+
+  // 改进建议汇总（老师式，按档次往前进）
+  var teacherSuggestions = buildTeacherSuggestions(res, issues);
+  html += '<div class="panel sec"><h3>老师建议（如何冲更高档次）</h3>';
+  teacherSuggestions.forEach(function(ts, i){
+    html += '<div class="issue" style="padding:10px 0">';
+    html += '<div style="font-weight:600;color:var(--accent);margin-bottom:4px">' + (i+1) + '. ' + ts.title + '</div>';
+    html += '<div style="font-size:14px;line-height:1.7;color:#444">' + ts.detail + '</div>';
+    html += '</div>';
+  });
+  html += '</div>';
+
+  // 高分范文
+  if(topic && SAMPLES[topic]){
+    var s = SAMPLES[topic];
+    html += '<div class="panel sec"><h3>高分范文参考</h3><div class="sample"><div class="en">' + s.en.replace(/\n/g,'<br>') + '</div><div class="cn">' + s.cn.replace(/\n/g,'<br>') + '</div></div></div>';
+  }
+
+  document.getElementById("result").innerHTML = html;
+  document.getElementById("result").style.display = "block";
+  document.getElementById("copyBar").style.display = "block";
+  document.getElementById("result").scrollIntoView({behavior:"smooth"});
+
+  // 生成纯文本报告供复制
+  window.__reportText = buildReportText(res, vocab, issues, topic, text);
+}
+
+// ===== 事件 =====
+document.getElementById("essay").addEventListener("input", function(){
+  var w = countWords(this.value);
+  document.getElementById("wordHint").textContent = w + " 词";
+});
+
+document.getElementById("gradeBtn").addEventListener("click", function(){
+  var text = document.getElementById("essay").value;
+  var topic = document.getElementById("topic").value;
+  var customTopic = document.getElementById("customTopic").value.trim();
+  // 如果选了真题就用真题，否则用自定义题目
+  if(!topic && customTopic){ topic = customTopic; }
+  if(countWords(text) === 0){
+    document.getElementById("result").innerHTML = '<div class="panel"><div class="empty">请先粘贴作文再批改</div></div>';
+    document.getElementById("result").style.display = "block";
+    return;
+  }
+  var res = gradeEssay(text, topic);
+  var vocab = findVocabUpgrades(text);
+  var issues = findGrammarIssues(text);
+  renderResult(res, vocab, issues, topic, text);
+});
+
+document.getElementById("clearBtn").addEventListener("click", function(){
+  document.getElementById("essay").value = "";
+  document.getElementById("wordHint").textContent = "0 词";
+  document.getElementById("result").style.display = "none";
+  document.getElementById("copyBar").style.display = "none";
+});
+
+// ===== 模式切换 =====
+var tabGrade = document.getElementById("tabGrade");
+var tabQuick = document.getElementById("tabQuick");
+var modeGrade = document.getElementById("modeGrade");
+var modeQuick = document.getElementById("modeQuick");
+function switchMode(mode){
+  if(mode === "grade"){
+    tabGrade.classList.add("active"); tabQuick.classList.remove("active");
+    modeGrade.style.display = "block"; modeQuick.style.display = "none";
+  } else {
+    tabQuick.classList.add("active"); tabGrade.classList.remove("active");
+    modeQuick.style.display = "block"; modeGrade.style.display = "none";
+  }
+  document.getElementById("result").style.display = "none";
+  document.getElementById("copyBar").style.display = "none";
+}
+tabGrade.addEventListener("click", function(){ switchMode("grade"); });
+tabQuick.addEventListener("click", function(){ switchMode("quick"); });
+
+// ===== 拍照上传 + OCR =====
+var ocrBtn = document.getElementById("ocrBtn");
+var ocrFile = document.getElementById("ocrFile");
+var ocrStatus = document.getElementById("ocrStatus");
+var ocrPreview = document.getElementById("ocrPreview");
+ocrBtn.addEventListener("click", function(){ ocrFile.click(); });
+ocrFile.addEventListener("change", function(e){
+  var file = e.target.files[0];
+  if(!file) return;
+  // 预览
+  var reader = new FileReader();
+  reader.onload = function(ev){
+    ocrPreview.src = ev.target.result;
+    ocrPreview.style.display = "block";
+  };
+  reader.readAsDataURL(file);
+  // OCR
+  if(typeof Tesseract === "undefined"){
+    ocrStatus.textContent = "OCR 库未加载";
+    return;
+  }
+  ocrBtn.disabled = true;
+  ocrStatus.textContent = "识别中，请稍候…";
+  Tesseract.recognize(file, "eng", {
+    workerPath: "ocr/worker.min.js",
+    corePath: "ocr",
+    langPath: "ocr",
+    logger: function(m){
+      if(m.status === "recognizing text"){
+        ocrStatus.textContent = "识别中… " + Math.round(m.progress*100) + "%";
+      } else if(m.status){
+        ocrStatus.textContent = "加载中… " + m.status;
+      }
+    }
+  }).then(function(res){
+    var text = res.data.text || "";
+    document.getElementById("essay").value = text.trim();
+    document.getElementById("wordHint").textContent = countWords(text) + " 词";
+    ocrStatus.textContent = "识别完成，请检查并修正识别结果";
+    ocrBtn.disabled = false;
+  }).catch(function(err){
+    var msg = err && err.message ? err.message : "未知错误";
+    if(err && err.stack){ console.error(err.stack); }
+    ocrStatus.textContent = "识别失败：" + msg;
+    ocrBtn.disabled = false;
+  });
+});
+
+// ===== 快速估分 =====
+var qTopicSel = {};  // 存储选中状态
+function bindChips(containerId, key){
+  var container = document.getElementById(containerId);
+  qTopicSel[key] = "";
+  container.querySelectorAll(".chip").forEach(function(chip){
+    chip.addEventListener("click", function(){
+      container.querySelectorAll(".chip").forEach(function(c){ c.classList.remove("active"); });
+      chip.classList.add("active");
+      qTopicSel[key] = chip.getAttribute("data-v");
+    });
+  });
+}
+bindChips("quickTopicOpt", "topic");
+bindChips("quickLangOpt", "lang");
+bindChips("quickWordOpt", "word");
+
+document.getElementById("quickBtn").addEventListener("click", function(){
+  var topic = document.getElementById("quickTopic").value;
+  var customTopic = document.getElementById("quickCustomTopic").value.trim();
+  if(!topic && customTopic){ topic = customTopic; }
+  var desc = document.getElementById("quickDesc").value.trim();
+  var tSel = qTopicSel.topic;
+  var lSel = qTopicSel.lang;
+  var wSel = qTopicSel.word;
+
+  // 从描述中推断（如果没点 chip）
+  if(!tSel){
+    if(/跑题|不扣题|完全跑/.test(desc)) tSel = "runoff";
+    else if(/偏题|只写了|漏了|没写|只写/.test(desc)) tSel = "partial";
+    else tSel = "full";
+  }
+  if(!lSel){
+    if(/混乱|错很多|严重错误|读起来费劲/.test(desc)) lSel = "chaotic";
+    else if(/错误多|不清晰|一般/.test(desc)) lSel = "unclear";
+    else if(/普通|一般|少量错误/.test(desc)) lSel = "clear";
+    else lSel = "clear";
+  }
+  if(!wSel){
+    if(/不到100|少于100|没写够|严重不足|字数不够/.test(desc)) wSel = "veryShort";
+    else if(/略不足|100多|没到120/.test(desc)) wSel = "short";
+    else wSel = "ok";
+  }
+
+  var band = estimateBand(tSel, lSel, wSel);
+  renderQuickResult(topic, desc, tSel, lSel, wSel, band);
+});
+
+function estimateBand(tSel, lSel, wSel){
+  // 基础分档（15分制）
+  var base;
+  if(tSel === "runoff") base = 2;
+  else if(tSel === "off") base = 5;
+  else if(tSel === "partial") base = 8;
+  else base = 11;
+
+  // 语言调整
+  if(lSel === "excellent") base += 2;
+  else if(lSel === "chaotic") base -= 3;
+  else if(lSel === "unclear") base -= 1;
+
+  // 字数调整
+  if(wSel === "veryShort") base -= 5;
+  else if(wSel === "short") base -= 1;
+
+  base = Math.max(1, Math.min(15, base));
+
+  // 映射到档位
+  if(base >= 13) return {band:"14分档", score:"13–15 分", points:"95–106.5", low:13, high:15, est:14};
+  if(base >= 10) return {band:"11分档", score:"10–12 分", points:"74–85", low:10, high:12, est:11};
+  if(base >= 7)  return {band:"8分档", score:"7–9 分", points:"54–65", low:7, high:9, est:8};
+  if(base >= 4)  return {band:"5分档", score:"4–6 分", points:"34–45", low:4, high:6, est:5};
+  return {band:"2分档", score:"1–3 分", points:"7–25", low:1, high:3, est:2};
+}
+
+function renderQuickResult(topic, desc, tSel, lSel, wSel, band){
+  var topicNameMap = {"research":"试卷一（强制大学生参与科研项目）","robot":"试卷二（机器人在未来校园的应用）","campus":"试卷三（如何让校园生活更便捷）"};
+  var topicName = topicNameMap[topic] || topic || "未指定题目";
+  var tLabel = {full:"完全扣题",partial:"基本扣题（漏一面）",off:"偏题",runoff:"跑题"}[tSel];
+  var lLabel = {excellent:"流畅有亮点",clear:"清楚少量错误",unclear:"错误较多",chaotic:"混乱错误多"}[lSel];
+  var wLabel = {ok:"达标 120–180",short:"略不足 100–120",veryShort:"严重不足 <100"}[wSel];
+  var est106 = Math.round(band.est * 7.1);
+
+  var html = '<div class="panel quick-result">';
+  html += '<h3 style="margin-bottom:10px">⚡ 快速估分结果</h3>';
+  html += '<div style="font-size:34px;font-weight:700;color:var(--accent)">' + band.band + '</div>';
+  html += '<div style="font-size:15px;margin-top:4px">估计 ' + band.score + '，折算约 <b>' + est106 + ' 分</b>（满分 106.5）</div>';
+  html += '<div style="margin-top:14px">';
+  html += '<p><b>题目：</b>' + topicName + '</p>';
+  html += '<p><b>扣题：</b>' + tLabel + '</p>';
+  html += '<p><b>语言：</b>' + lLabel + '</p>';
+  html += '<p><b>字数：</b>' + wLabel + '</p>';
+  html += '</div>';
+  html += '<div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">';
+  html += '<p><b>老师点评：</b>' + quickComment(tSel, lSel, wSel, band) + '</p>';
+  html += '<p style="margin-top:8px"><b>补救建议：</b>' + quickAdvice(topic, tSel, band) + '</p>';
+  html += '<p style="margin-top:8px;color:var(--muted);font-size:12px">注：本估算仅供参考，最终成绩受常模参照影响可能浮动 ±1 档。</p>';
+  html += '</div></div>';
+  document.getElementById("quickResult").innerHTML = html;
+  document.getElementById("quickResult").scrollIntoView({behavior:"smooth"});
+}
+
+function quickComment(tSel, lSel, wSel, band){
+  var parts = [];
+  if(tSel === "partial") parts.push("漏写了关键要点，属于基本扣题，内容不完整");
+  if(tSel === "runoff") parts.push("整体跑题，这是最严重的失分");
+  if(lSel === "chaotic") parts.push("语言表达混乱，严重语法错误较多");
+  if(wSel === "veryShort") parts.push("字数严重不足，直接拉低档次");
+  if(parts.length === 0) parts.push("整体发挥稳定，符合该档位特征");
+  return parts.join("；") + "。";
+}
+
+function quickAdvice(topic, tSel, band){
+  // 针对具体题目的必答要点
+  var topicAdvice = {
+    "research": "务必同时写「必要性 necessity」和「可行性 practicality」两面。可补写：'Moreover, this proposal is practical because universities provide abundant resources and experienced supervisors.'",
+    "robot": "给出机器人的具体应用场景（送餐、图书管理、安保、答疑），避免泛泛而谈。可补写：'For instance, robots can deliver packages and answer students' questions around the clock.'",
+    "campus": "提出具体可操作的建议（增设自习室、优化食堂、完善选课系统），并说明理由。可补写：'The university should add more self-study rooms, since the existing ones are often overcrowded.'"
+  }[topic];
+  var langTip = "语言上可用亮点句式，如倒装句 'Only in this way can we...' 或强调句 'It is... that...'。";
+
+  // 根据当前档次给“冲下一档”路径
+  var bandPath = "";
+  if(band.band === "2分档"){
+    bandPath = "当前2分档，先解决跑题和基础语法：确保读懂题目、每句话主谓宾完整、字数先写到90词以上，目标是先冲5分档。";
+  } else if(band.band === "5分档"){
+    bandPath = "当前5分档，冲8分档（及格）的关键是：扣题（题目要求的两三面都写到）+ 减少严重语法错误 + 字数补到120词以上。";
+  } else if(band.band === "8分档"){
+    bandPath = "当前8分档，冲11分档的关键是：强化三段式结构、把语法错误降到少量、加2-3个过渡词让段落更连贯。";
+  } else if(band.band === "11分档"){
+    bandPath = "当前11分档，冲14分档的关键是：加1-2个高级句式（倒装/强调）、用具体例子支撑论点、把简单词换成高级词。";
+  } else {
+    bandPath = "当前14分档，保持稳定即可：注意冠词介词等小瑕疵，保持句式多样，字数别超太多。";
+  }
+
+  var parts = [];
+  if(topicAdvice) parts.push(topicAdvice);
+  parts.push(langTip);
+  parts.push(bandPath);
+  return parts.join(" ");
+}
+</script>
+</body>
+</html>
