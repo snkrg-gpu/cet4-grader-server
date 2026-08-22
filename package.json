@@ -1,0 +1,9 @@
+{
+  "name": "cet4-grader-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "CET-4 essay grader with activation-code device binding",
+  "dependencies": {
+    "@vercel/kv": "^1.0.1"
+  }
+}
