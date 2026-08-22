@@ -191,6 +191,7 @@
           <input type="file" id="ocrGalleryFile" accept="image/*" style="display:none">
           <span class="ocr-status" id="ocrStatus"></span>
         </div>
+        <div id="androidTip" style="display:none;margin-top:10px;padding:10px 12px;background:#fbeedf;border:1px solid #f0d9c0;border-radius:8px;font-size:13px;color:#b3541e">💡 提示：安卓手机建议用 Chrome 浏览器打开，识别速度会更快。</div>
         <img class="ocr-preview" id="ocrPreview" alt="预览">
         <div class="word-hint" id="wordHint">0 词</div>
         <div class="btn-row">
@@ -1145,14 +1146,60 @@ ocrGalleryBtn.addEventListener("click", function(){ ocrGalleryFile.click(); });
 // 两个 input 共用同一个处理函数
 function handleOcrFile(file){
   if(!file) return;
-  // 预览
-  var reader = new FileReader();
-  reader.onload = function(ev){
-    ocrPreview.src = ev.target.result;
+  // 压缩图片后再识别（加快手机识别速度，尤其安卓）
+  compressImage(file, 1600, function(compressedFile, dataUrl){
+    // 预览（用压缩后的）
+    ocrPreview.src = dataUrl;
     ocrPreview.style.display = "block";
-  };
-  reader.readAsDataURL(file);
-  // OCR
+    runOcr(compressedFile);
+  }, function(){
+    // 压缩失败，直接用原图
+    var reader = new FileReader();
+    reader.onload = function(ev){
+      ocrPreview.src = ev.target.result;
+      ocrPreview.style.display = "block";
+    };
+    reader.readAsDataURL(file);
+    runOcr(file);
+  });
+}
+
+// 图片压缩：用 canvas 缩小到 maxDim 以内，返回 Blob
+function compressImage(file, maxDim, onSuccess, onError){
+  try{
+    var img = new Image();
+    var url = URL.createObjectURL(file);
+    img.onload = function(){
+      var w = img.width, h = img.height;
+      if(w <= maxDim && h <= maxDim){
+        URL.revokeObjectURL(url);
+        // 图片已经够小，直接用原文件
+        onSuccess(file, url);
+        return;
+      }
+      var ratio = Math.min(maxDim / w, maxDim / h);
+      var nw = Math.round(w * ratio), nh = Math.round(h * ratio);
+      var canvas = document.createElement("canvas");
+      canvas.width = nw; canvas.height = nh;
+      var ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0, nw, nh);
+      URL.revokeObjectURL(url);
+      canvas.toBlob(function(blob){
+        if(blob && blob.size < file.size){
+          onSuccess(blob, canvas.toDataURL("image/jpeg", 0.85));
+        } else {
+          onSuccess(file, url);
+        }
+      }, "image/jpeg", 0.85);
+    };
+    img.onerror = function(){ URL.revokeObjectURL(url); onError(); };
+    img.src = url;
+  }catch(e){
+    onError();
+  }
+}
+
+function runOcr(file){
   if(typeof Tesseract === "undefined"){
     ocrStatus.textContent = "OCR 库未加载";
     return;
@@ -1194,6 +1241,17 @@ function handleOcrFile(file){
 
 ocrCameraFile.addEventListener("change", function(e){ handleOcrFile(e.target.files[0]); });
 ocrGalleryFile.addEventListener("change", function(e){ handleOcrFile(e.target.files[0]); });
+
+// 检测安卓 + 非 Chrome，显示建议提示
+(function(){
+  var ua = navigator.userAgent || "";
+  var isAndroid = /Android/i.test(ua);
+  var isChrome = /Chrome\//i.test(ua) && !/Edg|OPR|SamsungBrowser|HuaweiBrowser|UCBrowser|QQBrowser/i.test(ua);
+  if(isAndroid && !isChrome){
+    var tip = document.getElementById("androidTip");
+    if(tip) tip.style.display = "block";
+  }
+})();
 
 // ===== 快速估分 =====
 var qTopicSel = {};  // 存储选中状态
