@@ -118,7 +118,8 @@
   .ocr-btn:active{transform:scale(.98)}
   .ocr-btn:disabled{opacity:.5;cursor:not-allowed}
   .ocr-status{font-size:13px;color:var(--muted)}
-  .ocr-preview{max-width:100%;max-height:140px;border-radius:10px;margin-top:10px;border:1px solid var(--line);display:none}
+  .ocr-preview{max-width:100%;max-height:140px;border-radius:10px;margin-top:10px;border:1px solid var(--line);display:none;cursor:zoom-in}
+  .ocr-preview.zoomed{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);max-width:92vw;max-height:92vh;border-radius:12px;z-index:9999;cursor:zoom-out;box-shadow:0 10px 40px rgba(0,0,0,0.5)}
 
   /* 快速估分 */
   .quick-desc textarea{min-height:140px}
@@ -1140,10 +1141,23 @@ var ocrGalleryFile = document.getElementById("ocrGalleryFile");
 var ocrStatus = document.getElementById("ocrStatus");
 var ocrPreview = document.getElementById("ocrPreview");
 
-// 预览按钮：在新标签页打开原图（放大查看）
+// 预览按钮：在本页放大/缩小图片
 ocrPreviewBtn.addEventListener("click", function(){
   if(ocrPreview.src){
-    window.open(ocrPreview.src, "_blank");
+    if(ocrPreview.classList.contains("zoomed")){
+      ocrPreview.classList.remove("zoomed");
+      ocrPreviewBtn.textContent = "👁️ 预览图片";
+    } else {
+      ocrPreview.classList.add("zoomed");
+      ocrPreviewBtn.textContent = "🙈 缩小图片";
+    }
+  }
+});
+// 点击图片本身也能切换放大/缩小
+ocrPreview.addEventListener("click", function(){
+  if(ocrPreview.classList.contains("zoomed")){
+    ocrPreview.classList.remove("zoomed");
+    ocrPreviewBtn.textContent = "👁️ 预览图片";
   }
 });
 
