@@ -1148,7 +1148,59 @@ document.getElementById("gradeBtn").addEventListener("click", function(){
   var vocab = findVocabUpgrades(text);
   var issues = findGrammarIssues(text);
   renderResult(res, vocab, issues, topic, text);
+
+  // 异步调用豆包 AI 做更全面的语法分析，成功后合并结果重新渲染
+  callGrammarAI(text, function(aiIssues){
+    if(aiIssues && aiIssues.length > 0){
+      var merged = mergeIssues(issues, aiIssues);
+      renderResult(res, vocab, merged, topic, text);
+    }
+  });
 });
+
+// 调用后端 /api/grammar，用豆包大模型做语法分析
+function callGrammarAI(text, onDone){
+  try{
+    fetch("/api/grammar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: text })
+    }).then(function(r){ return r.json(); }).then(function(data){
+      if(data && data.ok && data.issues){
+        onDone(data.issues);
+      } else {
+        onDone(null);
+      }
+    }).catch(function(){
+      onDone(null);
+    });
+  }catch(e){
+    onDone(null);
+  }
+}
+
+// 合并本地规则库结果与 AI 结果，AI 优先，本地作为补充（按 sentence 去重）
+function mergeIssues(localIssues, aiIssues){
+  var merged = [];
+  var seen = {};
+  // 先放 AI 结果
+  aiIssues.forEach(function(it){
+    var key = (it.sentence + "|" + (it.errText || "")).toLowerCase();
+    if(!seen[key]){
+      seen[key] = true;
+      merged.push(it);
+    }
+  });
+  // 再补本地规则库结果（AI 没覆盖到的）
+  localIssues.forEach(function(it){
+    var key = (it.sentence + "|" + (it.errText || "")).toLowerCase();
+    if(!seen[key]){
+      seen[key] = true;
+      merged.push(it);
+    }
+  });
+  return merged;
+}
 
 document.getElementById("clearBtn").addEventListener("click", function(){
   document.getElementById("essay").value = "";
