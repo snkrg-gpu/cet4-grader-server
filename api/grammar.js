@@ -81,7 +81,8 @@ async function analyzeGrammar(text) {
         { role: 'user', content: userPrompt }
       ],
       temperature: 0.1,
-      max_tokens: 2000
+      max_tokens: 1500,
+      thinking: { type: 'disabled' }
     })
   });
 
