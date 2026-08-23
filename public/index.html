@@ -187,12 +187,13 @@
         <div class="ocr-row">
           <button class="ocr-btn" id="ocrCameraBtn">📷 拍照</button>
           <button class="ocr-btn" id="ocrGalleryBtn">🖼️ 从相册选择</button>
+          <button class="ocr-btn" id="ocrPreviewBtn" style="display:none">👁️ 预览图片</button>
           <input type="file" id="ocrCameraFile" accept="image/*" capture="environment" style="display:none">
           <input type="file" id="ocrGalleryFile" accept="image/*" style="display:none">
           <span class="ocr-status" id="ocrStatus"></span>
         </div>
         <div id="androidTip" style="display:none;margin-top:10px;padding:10px 12px;background:#fbeedf;border:1px solid #f0d9c0;border-radius:8px;font-size:13px;color:#b3541e">💡 提示：安卓手机建议用 Chrome 浏览器打开，识别速度会更快。</div>
-        <img class="ocr-preview" id="ocrPreview" alt="预览">
+        <img class="ocr-preview" id="ocrPreview" alt="预览" style="display:none">
         <div class="word-hint" id="wordHint">0 词</div>
         <div class="btn-row">
           <button class="btn btn-primary" id="gradeBtn">开始批改</button>
@@ -1133,10 +1134,22 @@ tabQuick.addEventListener("click", function(){ switchMode("quick"); });
 // ===== 拍照上传 + 相册选择 + OCR =====
 var ocrCameraBtn = document.getElementById("ocrCameraBtn");
 var ocrGalleryBtn = document.getElementById("ocrGalleryBtn");
+var ocrPreviewBtn = document.getElementById("ocrPreviewBtn");
 var ocrCameraFile = document.getElementById("ocrCameraFile");
 var ocrGalleryFile = document.getElementById("ocrGalleryFile");
 var ocrStatus = document.getElementById("ocrStatus");
 var ocrPreview = document.getElementById("ocrPreview");
+
+// 预览按钮：切换图片显示/隐藏
+ocrPreviewBtn.addEventListener("click", function(){
+  if(ocrPreview.style.display === "none" || ocrPreview.style.display === ""){
+    ocrPreview.style.display = "block";
+    ocrPreviewBtn.textContent = "🙈 隐藏图片";
+  } else {
+    ocrPreview.style.display = "none";
+    ocrPreviewBtn.textContent = "👁️ 预览图片";
+  }
+});
 
 // 拍照按钮 → 触发带 capture 的 input（手机直接调起后置摄像头）
 ocrCameraBtn.addEventListener("click", function(){ ocrCameraFile.click(); });
@@ -1148,16 +1161,20 @@ function handleOcrFile(file){
   if(!file) return;
   // 压缩图片后再识别（加快手机识别速度，尤其安卓）
   compressImage(file, 1600, function(compressedFile, dataUrl){
-    // 预览（用压缩后的）
+    // 存图片地址，不自动显示，等点预览按钮才显示
     ocrPreview.src = dataUrl;
-    ocrPreview.style.display = "block";
+    ocrPreview.style.display = "none";
+    ocrPreviewBtn.style.display = "inline-block";
+    ocrPreviewBtn.textContent = "👁️ 预览图片";
     runOcr(compressedFile);
   }, function(){
     // 压缩失败，直接用原图
     var reader = new FileReader();
     reader.onload = function(ev){
       ocrPreview.src = ev.target.result;
-      ocrPreview.style.display = "block";
+      ocrPreview.style.display = "none";
+      ocrPreviewBtn.style.display = "inline-block";
+      ocrPreviewBtn.textContent = "👁️ 预览图片";
     };
     reader.readAsDataURL(file);
     runOcr(file);
