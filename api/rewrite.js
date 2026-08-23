@@ -44,17 +44,8 @@ async function rewriteEssay(text) {
     '你是一名英语写作老师，擅长把学生的英语作文润色成高分范文。',
     '请把下面这篇 CET-4 作文改写成改进版：修正所有语法错误、拼写错误、中式英语，升级简单词汇和句式，使表达更地道、更流畅，但保留原文的核心观点、段落结构和大致篇幅（120-180 词）。',
     '',
-    '只输出 JSON，不要输出任何其他文字、解释或 markdown 代码块。',
-    'JSON 格式如下：',
-    '{',
-    '  "en": "改进后的英文作文全文",',
-    '  "cn": "改进版的中文翻译"',
-    '}',
-    '',
-    '规则：',
-    '1. en 是改进后的完整英文作文，保留原文段落结构。',
-    '2. cn 是 en 对应的中文翻译。',
-    '3. 不要新增原文没有的观点，只做语言层面的润色升级。'
+    '只输出改进后的英文作文全文，不要输出任何其他文字、解释、翻译或 markdown 代码块。',
+    '不要新增原文没有的观点，只做语言层面的润色升级。'
   ].join('\n');
 
   const userPrompt = '请润色下面这篇作文：\n\n' + text;
@@ -72,7 +63,7 @@ async function rewriteEssay(text) {
         { role: 'user', content: userPrompt }
       ],
       temperature: 0.3,
-      max_tokens: 2000,
+      max_tokens: 800,
       thinking: { type: 'disabled' }
     })
   });
@@ -95,27 +86,11 @@ async function rewriteEssay(text) {
     throw new Error('Empty response from Doubao');
   }
 
-  // 解析 AI 返回的 JSON（容错处理 markdown 代码块）
-  let parsed = null;
-  try {
-    parsed = JSON.parse(content);
-  } catch (e) {
-    const cleaned = content.replace(/```json/gi, '').replace(/```/g, '').trim();
-    try {
-      parsed = JSON.parse(cleaned);
-    } catch (e2) {
-      const start = cleaned.indexOf('{');
-      const end = cleaned.lastIndexOf('}');
-      if (start !== -1 && end !== -1 && end > start) {
-        parsed = JSON.parse(cleaned.slice(start, end + 1));
-      } else {
-        throw new Error('无法解析 AI 返回的 JSON');
-      }
-    }
-  }
+  // AI 直接返回润色后的英文全文（纯文本），去掉可能的多余包裹
+  const en = content.replace(/```/g, '').trim();
 
   return {
-    en: (parsed && parsed.en) || '',
-    cn: (parsed && parsed.cn) || ''
+    en: en,
+    cn: ''
   };
 }
