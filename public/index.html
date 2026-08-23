@@ -1199,6 +1199,65 @@ function compressImage(file, maxDim, onSuccess, onError){
   }
 }
 
+// 根据 OCR 块的行位置信息重建段落（识别图片里的分段）
+function rebuildParagraphs(data){
+  // 收集所有行及其 Y 坐标
+  var lines = [];
+  function walkBlocks(blocks){
+    if(!blocks) return;
+    blocks.forEach(function(b){
+      if(b.paragraphs && b.paragraphs.length){
+        b.paragraphs.forEach(function(p){
+          if(p.lines && p.lines.length){
+            p.lines.forEach(function(l){
+              var txt = (l.text || "").trim();
+              if(txt){
+                lines.push({ text: txt, y: (l.bbox && typeof l.bbox.y0 === "number") ? l.bbox.y0 : 0 });
+              }
+            });
+          }
+        });
+      }
+    });
+  }
+  walkBlocks(data.blocks);
+
+  if(lines.length === 0){
+    // 没有块信息，退回纯文本
+    return (data.text || "").trim();
+  }
+
+  // 按 Y 坐标排序
+  lines.sort(function(a, b){ return a.y - b.y; });
+
+  // 计算平均行高，用于判断段落间距
+  var gaps = [];
+  for(var i = 1; i < lines.length; i++){
+    gaps.push(lines[i].y - lines[i-1].y);
+  }
+  if(gaps.length === 0){
+    return lines.map(function(l){ return l.text; }).join("\n");
+  }
+  gaps.sort(function(a, b){ return a - b; });
+  var medianGap = gaps[Math.floor(gaps.length / 2)];
+
+  // 段落间距阈值：超过平均行高的 1.6 倍，判定为新段落
+  var threshold = medianGap * 1.6;
+  if(threshold < 10){ threshold = 10; }
+
+  // 重建文本：间距大的地方插入空行
+  var out = [];
+  out.push(lines[0].text);
+  for(var j = 1; j < lines.length; j++){
+    var gap = lines[j].y - lines[j-1].y;
+    if(gap > threshold){
+      out.push("");  // 空行 = 分段
+    }
+    out.push(lines[j].text);
+  }
+  return out.join("\n");
+}
+
 function runOcr(file){
   if(typeof Tesseract === "undefined"){
     ocrStatus.textContent = "OCR 库未加载";
@@ -1224,8 +1283,8 @@ function runOcr(file){
       }
     }
   }).then(function(res){
-    var text = res.data.text || "";
-    document.getElementById("essay").value = text.trim();
+    var text = rebuildParagraphs(res.data);
+    document.getElementById("essay").value = text;
     document.getElementById("wordHint").textContent = countWords(text) + " 词";
     ocrStatus.textContent = "识别完成，请检查并修正识别结果";
     ocrCameraBtn.disabled = false;
