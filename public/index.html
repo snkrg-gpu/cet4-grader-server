@@ -118,7 +118,10 @@
   .ocr-btn:active{transform:scale(.98)}
   .ocr-btn:disabled{opacity:.5;cursor:not-allowed}
   .ocr-status{font-size:13px;color:var(--muted)}
-  .ocr-preview{max-width:100%;max-height:140px;border-radius:10px;margin-top:10px;border:1px solid var(--line);display:none}
+  .ocr-preview-wrap{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .ocr-preview-wrap .thumb{position:relative;width:80px;height:80px;border-radius:8px;overflow:hidden;border:1px solid var(--line)}
+  .ocr-preview-wrap .thumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .ocr-preview-wrap .thumb .idx{position:absolute;top:4px;left:4px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;padding:1px 6px;border-radius:10px}
 
   /* 快速估分 */
   .quick-desc textarea{min-height:140px}
@@ -188,11 +191,11 @@
           <button class="ocr-btn" id="ocrCameraBtn">📷 拍照</button>
           <button class="ocr-btn" id="ocrGalleryBtn">🖼️ 从相册选择</button>
           <input type="file" id="ocrCameraFile" accept="image/*" capture="environment" style="display:none">
-          <input type="file" id="ocrGalleryFile" accept="image/*" style="display:none">
+          <input type="file" id="ocrGalleryFile" accept="image/*" multiple style="display:none">
           <span class="ocr-status" id="ocrStatus"></span>
         </div>
         <div id="androidTip" style="display:none;margin-top:10px;padding:10px 12px;background:#fbeedf;border:1px solid #f0d9c0;border-radius:8px;font-size:13px;color:#b3541e">💡 提示：安卓手机建议用 Chrome 浏览器打开，识别速度会更快。</div>
-        <img class="ocr-preview" id="ocrPreview" alt="预览" style="display:none">
+        <div class="ocr-preview-wrap" id="ocrPreviewWrap" style="display:none"></div>
         <div class="word-hint" id="wordHint">0 词</div>
         <div class="btn-row">
           <button class="btn btn-primary" id="gradeBtn">开始批改</button>
@@ -1264,32 +1267,78 @@ var ocrGalleryBtn = document.getElementById("ocrGalleryBtn");
 var ocrCameraFile = document.getElementById("ocrCameraFile");
 var ocrGalleryFile = document.getElementById("ocrGalleryFile");
 var ocrStatus = document.getElementById("ocrStatus");
-var ocrPreview = document.getElementById("ocrPreview");
+var ocrPreviewWrap = document.getElementById("ocrPreviewWrap");
+var MAX_OCR_IMAGES = 5;
 
 // 拍照按钮 → 触发带 capture 的 input（手机直接调起后置摄像头）
 ocrCameraBtn.addEventListener("click", function(){ ocrCameraFile.click(); });
 // 相册按钮 → 触发普通 input（手机弹出相册选择）
 ocrGalleryBtn.addEventListener("click", function(){ ocrGalleryFile.click(); });
 
-// 两个 input 共用同一个处理函数
-function handleOcrFile(file){
-  if(!file) return;
-  // 压缩图片后再识别（加快手机识别速度，尤其安卓）
+// 两个 input 共用同一个处理函数（支持多文件）
+function handleOcrFiles(fileList){
+  if(!fileList || fileList.length === 0) return;
+  // 最多 5 张
+  var files = Array.prototype.slice.call(fileList).slice(0, MAX_OCR_IMAGES);
+  if(fileList.length > MAX_OCR_IMAGES){
+    ocrStatus.textContent = "最多 5 张，已取前 5 张";
+  }
+  // 禁用按钮，识别期间不可重复操作
+  ocrCameraBtn.disabled = true;
+  ocrGalleryBtn.disabled = true;
+  // 清空旧预览
+  ocrPreviewWrap.innerHTML = "";
+  ocrPreviewWrap.style.display = "none";
+  // 依次压缩 + 预览 + OCR
+  processOcrQueue(files, 0, []);
+}
+
+// 依次处理多张图片（压缩→预览→OCR→拼接）
+function processOcrQueue(files, idx, results){
+  if(idx >= files.length){
+    // 全部完成，拼接结果
+    var fullText = results.filter(function(t){ return t && t.trim(); }).join("\n\n");
+    document.getElementById("essay").value = fullText;
+    document.getElementById("wordHint").textContent = countWords(fullText) + " 词";
+    ocrStatus.textContent = "识别完成，共 " + files.length + " 张，请检查并修正";
+    ocrCameraBtn.disabled = false;
+    ocrGalleryBtn.disabled = false;
+    return;
+  }
+  var file = files[idx];
   compressImage(file, 1600, function(compressedFile, dataUrl){
-    // 上传后自动显示缩略图
-    ocrPreview.src = dataUrl;
-    ocrPreview.style.display = "block";
-    runOcr(compressedFile);
+    addThumb(dataUrl, idx);
+    runOcrSingle(compressedFile, function(text){
+      results.push(text);
+      processOcrQueue(files, idx + 1, results);
+    }, function(){
+      results.push("");
+      processOcrQueue(files, idx + 1, results);
+    });
   }, function(){
     // 压缩失败，直接用原图
     var reader = new FileReader();
     reader.onload = function(ev){
-      ocrPreview.src = ev.target.result;
-      ocrPreview.style.display = "block";
+      addThumb(ev.target.result, idx);
+      runOcrSingle(file, function(text){
+        results.push(text);
+        processOcrQueue(files, idx + 1, results);
+      }, function(){
+        results.push("");
+        processOcrQueue(files, idx + 1, results);
+      });
     };
     reader.readAsDataURL(file);
-    runOcr(file);
   });
+}
+
+// 添加一张缩略图到预览容器
+function addThumb(dataUrl, idx){
+  ocrPreviewWrap.style.display = "flex";
+  var div = document.createElement("div");
+  div.className = "thumb";
+  div.innerHTML = '<img src="' + dataUrl + '" alt=""><span class="idx">' + (idx + 1) + '</span>';
+  ocrPreviewWrap.appendChild(div);
 }
 
 // 图片压缩：用 canvas 缩小到 maxDim 以内，返回 Blob
@@ -1412,13 +1461,13 @@ function rebuildParagraphs(data){
   return out.join("\n");
 }
 
-function runOcr(file){
+// 单张图片 OCR，识别结果通过回调返回（不直接写 essay）
+function runOcrSingle(file, onSuccess, onError){
   if(typeof Tesseract === "undefined"){
     ocrStatus.textContent = "OCR 库未加载";
+    if(onError) onError();
     return;
   }
-  ocrCameraBtn.disabled = true;
-  ocrGalleryBtn.disabled = true;
   ocrStatus.textContent = "识别中，请稍候…";
   // 动态计算 base 路径（兼容根路径和子路径部署）
   var basePath = window.location.pathname.replace(/\/[^/]*$/, "");
@@ -1438,22 +1487,17 @@ function runOcr(file){
     }
   }).then(function(res){
     var text = rebuildParagraphs(res.data);
-    document.getElementById("essay").value = text;
-    document.getElementById("wordHint").textContent = countWords(text) + " 词";
-    ocrStatus.textContent = "识别完成，请检查并修正识别结果";
-    ocrCameraBtn.disabled = false;
-    ocrGalleryBtn.disabled = false;
+    if(onSuccess) onSuccess(text);
   }).catch(function(err){
     var msg = err && err.message ? err.message : "未知错误";
     if(err && err.stack){ console.error(err.stack); }
     ocrStatus.textContent = "识别失败：" + msg;
-    ocrCameraBtn.disabled = false;
-    ocrGalleryBtn.disabled = false;
+    if(onError) onError();
   });
 }
 
-ocrCameraFile.addEventListener("change", function(e){ handleOcrFile(e.target.files[0]); });
-ocrGalleryFile.addEventListener("change", function(e){ handleOcrFile(e.target.files[0]); });
+ocrCameraFile.addEventListener("change", function(e){ handleOcrFiles(e.target.files); });
+ocrGalleryFile.addEventListener("change", function(e){ handleOcrFiles(e.target.files); });
 
 // 检测安卓 + 非 Chrome，显示建议提示
 (function(){
