@@ -1143,10 +1143,13 @@ function renderResult(res, vocab, issues, topic, text){
   });
   html += '</div>';
 
-  // 高分范文
+  // 高分范文 / 改进版（无题目时用AI润色用户作文）
   if(topic && SAMPLES[topic]){
     var s = SAMPLES[topic];
-    html += '<div class="panel sec"><h3>高分范文参考</h3><div class="sample"><div class="en">' + s.en.replace(/\n/g,'<br>') + '</div><div class="cn">' + s.cn.replace(/\n/g,'<br>') + '</div></div></div>';
+    html += '<div class="panel sec" id="samplePanel"><h3>高分范文参考</h3><div class="sample"><div class="en">' + s.en.replace(/\n/g,'<br>') + '</div><div class="cn">' + s.cn.replace(/\n/g,'<br>') + '</div></div></div>';
+  } else {
+    // 无题目：先显示占位，异步调用 AI 润色后填充
+    html += '<div class="panel sec" id="samplePanel"><h3>你的作文改进版</h3><div class="sample"><div class="en" id="rewriteEn" style="color:#8a8a86">正在生成改进版…</div><div class="cn" id="rewriteCn"></div></div></div>';
   }
 
   document.getElementById("result").innerHTML = html;
@@ -1156,6 +1159,45 @@ function renderResult(res, vocab, issues, topic, text){
 
   // 生成纯文本报告供复制
   window.__reportText = buildReportText(res, vocab, issues, topic, text);
+
+  // 无题目时，异步调用 AI 润色生成改进版
+  if(!topic || !SAMPLES[topic]){
+    callRewriteAI(text, function(en, cn){
+      var enEl = document.getElementById("rewriteEn");
+      var cnEl = document.getElementById("rewriteCn");
+      if(enEl && en){
+        enEl.style.color = "";
+        enEl.innerHTML = en.replace(/\n/g,'<br>');
+      } else if(enEl){
+        enEl.style.color = "#b3541e";
+        enEl.textContent = "改进版生成失败，请检查网络或稍后重试。";
+      }
+      if(cnEl && cn){
+        cnEl.innerHTML = cn.replace(/\n/g,'<br>');
+      }
+    });
+  }
+}
+
+// 调用后端 /api/rewrite，用豆包大模型润色作文
+function callRewriteAI(text, onDone){
+  try{
+    fetch("/api/rewrite", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: text })
+    }).then(function(r){ return r.json(); }).then(function(data){
+      if(data && data.ok && data.en){
+        onDone(data.en, data.cn || "");
+      } else {
+        onDone(null, null);
+      }
+    }).catch(function(){
+      onDone(null, null);
+    });
+  }catch(e){
+    onDone(null, null);
+  }
 }
 
 // ===== 事件 =====
