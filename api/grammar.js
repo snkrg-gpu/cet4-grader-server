@@ -87,10 +87,17 @@ async function analyzeGrammar(text) {
 
   if (!resp.ok) {
     const errText = await resp.text();
-    throw new Error(`Doubao API ${resp.status}: ${errText.slice(0, 200)}`);
+    throw new Error(`Doubao API ${resp.status}: ${errText.slice(0, 300)}`);
   }
 
-  const data = await resp.json();
+  const rawBody = await resp.text();
+  let data = null;
+  try {
+    data = JSON.parse(rawBody);
+  } catch (e) {
+    throw new Error(`Doubao 返回非JSON响应: ${rawBody.slice(0, 300)}`);
+  }
+
   const content = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
 
   if (!content) {
