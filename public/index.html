@@ -1217,19 +1217,22 @@ document.getElementById("gradeBtn").addEventListener("click", function(){
     document.getElementById("result").style.display = "block";
     return;
   }
-  var vocab = findVocabUpgrades(text);
-  var issues = findGrammarIssues(text);
-  var res = gradeEssay(text, topic, issues);
-  renderResult(res, vocab, issues, topic, text);
 
-  // 异步调用豆包 AI 做更全面的语法分析，成功后合并结果重新渲染
+  // 先显示加载态，等 AI 结果回来一次性渲染，避免中间停顿/闪烁
+  document.getElementById("result").innerHTML = '<div class="panel"><div class="empty">正在批改，请稍候…</div></div>';
+  document.getElementById("result").style.display = "block";
+  document.getElementById("copyBar").style.display = "none";
+  document.getElementById("gradeBtn").disabled = true;
+
+  var vocab = findVocabUpgrades(text);
+
+  // 先调 AI 语法分析，拿到结果后再统一渲染
   callGrammarAI(text, function(aiIssues){
-    if(aiIssues && aiIssues.length > 0){
-      var merged = mergeIssues(issues, aiIssues);
-      // 语法错误变了，重新计算打分（更客观）
-      var res2 = gradeEssay(text, topic, merged);
-      renderResult(res2, vocab, merged, topic, text);
-    }
+    var localIssues = findGrammarIssues(text);
+    var merged = (aiIssues && aiIssues.length > 0) ? mergeIssues(localIssues, aiIssues) : localIssues;
+    var res = gradeEssay(text, topic, merged);
+    renderResult(res, vocab, merged, topic, text);
+    document.getElementById("gradeBtn").disabled = false;
   });
 });
 
