@@ -1222,15 +1222,25 @@ function rebuildParagraphs(data){
   }
   walkBlocks(data.blocks);
 
+  // 过滤噪声行：字母占比较低，或含明确乱码符号的行（水印/页码/乱码）丢弃
+  lines = lines.filter(function(l){
+    var letters = (l.text.match(/[a-zA-Z]/g) || []).length;
+    var total = l.text.length;
+    if(total === 0) return false;
+    if((letters / total) < 0.5) return false;
+    // 含明确乱码符号（排除 OCR 常见的误识别符号 | 、 鈥 等）
+    if(/[<>=@#€¥§¶±÷×—–†‡˜ˆˇ˘˙˚˛˜˝]/.test(l.text)) return false;
+    return true;
+  });
+
   if(lines.length === 0){
-    // 没有块信息，退回纯文本
     return (data.text || "").trim();
   }
 
   // 按 Y 坐标排序
   lines.sort(function(a, b){ return a.y - b.y; });
 
-  // 计算平均行高，用于判断段落间距
+  // 计算行间距
   var gaps = [];
   for(var i = 1; i < lines.length; i++){
     gaps.push(lines[i].y - lines[i-1].y);
@@ -1240,20 +1250,36 @@ function rebuildParagraphs(data){
   }
   gaps.sort(function(a, b){ return a - b; });
   var medianGap = gaps[Math.floor(gaps.length / 2)];
-
-  // 段落间距阈值：超过平均行高的 1.6 倍，判定为新段落
   var threshold = medianGap * 1.6;
   if(threshold < 10){ threshold = 10; }
 
-  // 重建文本：间距大的地方插入空行
-  var out = [];
-  out.push(lines[0].text);
-  for(var j = 1; j < lines.length; j++){
-    var gap = lines[j].y - lines[j-1].y;
-    if(gap > threshold){
-      out.push("");  // 空行 = 分段
+  // 第一步：间距分段（对有空行的作文最准）
+  function buildByGap(){
+    var out = [lines[0].text];
+    for(var j = 1; j < lines.length; j++){
+      var gap = lines[j].y - lines[j-1].y;
+      if(gap > threshold){ out.push(""); }
+      out.push(lines[j].text);
     }
-    out.push(lines[j].text);
+    return out.join("\n");
+  }
+
+  var gapResult = buildByGap();
+  var gapParas = gapResult.split(/\n\s*\n/).filter(function(p){ return p.trim(); });
+
+  // 如果间距分段已经分出 >= 2 段，说明作文有空行，直接用间距结果
+  if(gapParas.length >= 2){
+    return gapResult;
+  }
+
+  // 否则（整篇几乎无空行），用语义分段兜底
+  var paraStarters = /^(on\s+one\s+hand|on\s+the\s+other\s+hand|however|moreover|furthermore|in\s+addition|besides|nevertheless|for\s+example|for\s+instance|take\s+\w+|therefore|in\s+conclusion|to\s+sum\s+up|in\s+a\s+word|finally|last\s+but\s+not\s+least|first\s+and\s+foremost|firstly|secondly|thirdly|with\s+the\s+rapid|undoubtedly|admittedly|obviously)/i;
+  var out = [lines[0].text];
+  for(var k = 1; k < lines.length; k++){
+    if(paraStarters.test(lines[k].text)){
+      out.push("");
+    }
+    out.push(lines[k].text);
   }
   return out.join("\n");
 }
