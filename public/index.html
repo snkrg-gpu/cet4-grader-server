@@ -418,30 +418,30 @@ var VOCAB = {
 
 // ===== 常见语法错误检测（扩充版）=====
 var GRAMMAR_RULES = [
-  {re:/\bthe number of\s+\w+\s+are\b/i, msg:"'the number of' 后应接单数动词 is，而非 are（主谓不一致）", sev:"bad"},
-  {re:/\b(a lot of|many)\s+informations?\b/i, msg:"information 是不可数名词，不能加 s", sev:"bad"},
-  {re:/\badvices?\b/i, msg:"advice 是不可数名词，不能加 s", sev:"bad"},
-  {re:/\bdepend\s+in\b/i, msg:"depend 后应接 on，而非 in", sev:"warn"},
-  {re:/\bresponsible\s+of\b/i, msg:"responsible 后应接 for，而非 of", sev:"warn"},
-  {re:/\bdiscuss\s+about\b/i, msg:"discuss 是及物动词，直接接宾语，不加 about", sev:"warn"},
-  {re:/\bmore\s+(good|better|bad|worse)\b/i, msg:"比较级误用（more good → better）", sev:"warn"},
-  {re:/\bcan\s+be\s+able\s+to\b/i, msg:"can 与 be able to 重复，选其一即可", sev:"warn"},
-  {re:/\balthough\b[^,.]*\bbut\b/i, msg:"although 与 but 不能连用，删掉其中一个", sev:"bad"},
-  {re:/\bbecause\b[^,.]*\bso\b/i, msg:"because 与 so 不能连用，删掉其中一个", sev:"bad"},
-  {re:/\bI\s+am\s+agree\b/i, msg:"agree 是动词，应为 I agree，而非 I am agree", sev:"bad"},
-  {re:/\bpeople\s+is\b/i, msg:"people 是复数，应用 are，而非 is", sev:"bad"},
-  {re:/\bhe\s+don't\b|\bshe\s+don't\b|\bit\s+don't\b/i, msg:"第三人称单数应用 doesn't，而非 don't", sev:"bad"},
-  {re:/\bI\s+very\s+like\b/i, msg:"very 不能直接修饰动词，应为 I like ... very much", sev:"warn"},
-  {re:/\bmore\s+and\s+more\b/i, msg:"'more and more' 可升级为 'an increasing number of'", sev:"warn", upgrade:true},
-  {re:/\bto\s+\w+ing\b/i, msg:"不定式 to 后应接动词原形，而非 -ing 形式", sev:"warn"},
-  {re:/\b(a|an)\s+\w+\s+are\b/i, msg:"单数主语后应接 is，而非 are（主谓不一致）", sev:"warn"},
-  {re:/\bthere\s+is\s+\w+s\b/i, msg:"there is 后接复数名词应为 there are", sev:"warn"},
-  {re:/\bI\s+have\s+\w+ed\s+last\s+\w+\b/i, msg:"现在完成时不能与明确的过去时间(last...)连用，应用一般过去时", sev:"warn"},
-  {re:/\bin\s+the\s+future\b/i, msg:"'in the future' 与一般将来时搭配，注意时态一致", sev:"warn"},
-  {re:/\bmake\s+\w+\s+to\s+\w+\b/i, msg:"make sb. do sth. 中动词用原形，不加 to", sev:"warn"},
-  {re:/\blet\s+\w+\s+to\s+\w+\b/i, msg:"let sb. do sth. 中动词用原形，不加 to", sev:"warn"},
-  {re:/\b\w+\s+is\s+more\s+\w+er\b/i, msg:"比较级重复（more + -er 不能同时用）", sev:"warn"},
-  {re:/\b\w+\s+don't\s+\w+\b/i, msg:"检查主谓一致：复数主语用 don't，单数用 doesn't", sev:"warn"}
+  {re:/\bthe number of\s+\w+\s+are\b/i, msg:"'the number of' 后应接单数动词 is，而非 are（主谓不一致）", sev:"bad", fix:"把 are 改为 is"},
+  {re:/\b(a lot of|many)\s+informations?\b/i, msg:"information 是不可数名词，不能加 s", sev:"bad", fix:"去掉 s，改为 information"},
+  {re:/\badvices?\b/i, msg:"advice 是不可数名词，不能加 s", sev:"bad", fix:"去掉 s，改为 advice"},
+  {re:/\bdepend\s+in\b/i, msg:"depend 后应接 on，而非 in", sev:"warn", fix:"把 in 改为 on"},
+  {re:/\bresponsible\s+of\b/i, msg:"responsible 后应接 for，而非 of", sev:"warn", fix:"把 of 改为 for"},
+  {re:/\bdiscuss\s+about\b/i, msg:"discuss 是及物动词，直接接宾语，不加 about", sev:"warn", fix:"删掉 about"},
+  {re:/\bmore\s+(good|better|bad|worse)\b/i, msg:"比较级误用（more good → better）", sev:"warn", fix:"more good 改为 better，more bad 改为 worse"},
+  {re:/\bcan\s+be\s+able\s+to\b/i, msg:"can 与 be able to 重复，选其一即可", sev:"warn", fix:"删掉 can 或 be able to 其中一个"},
+  {re:/\balthough\b[^,.]*\bbut\b/i, msg:"although 与 but 不能连用，删掉其中一个", sev:"bad", fix:"删掉 although 或 but 其中一个"},
+  {re:/\bbecause\b[^,.]*\bso\b/i, msg:"because 与 so 不能连用，删掉其中一个", sev:"bad", fix:"删掉 because 或 so 其中一个"},
+  {re:/\bI\s+am\s+agree\b/i, msg:"agree 是动词，应为 I agree，而非 I am agree", sev:"bad", fix:"I am agree 改为 I agree"},
+  {re:/\bpeople\s+is\b/i, msg:"people 是复数，应用 are，而非 is", sev:"bad", fix:"people is 改为 people are"},
+  {re:/\bhe\s+don't\b|\bshe\s+don't\b|\bit\s+don't\b/i, msg:"第三人称单数应用 doesn't，而非 don't", sev:"bad", fix:"don't 改为 doesn't"},
+  {re:/\bI\s+very\s+like\b/i, msg:"very 不能直接修饰动词，应为 I like ... very much", sev:"warn", fix:"I very like 改为 I like ... very much"},
+  {re:/\bmore\s+and\s+more\b/i, msg:"'more and more' 可升级为 'an increasing number of'", sev:"warn", fix:"more and more 改为 an increasing number of"},
+  {re:/\bto\s+\w+ing\b/i, msg:"不定式 to 后应接动词原形，而非 -ing 形式", sev:"warn", fix:"to + -ing 改为 to + 动词原形"},
+  {re:/\b(a|an)\s+\w+\s+are\b/i, msg:"单数主语后应接 is，而非 are（主谓不一致）", sev:"warn", fix:"are 改为 is"},
+  {re:/\bthere\s+is\s+\w+s\b/i, msg:"there is 后接复数名词应为 there are", sev:"warn", fix:"there is 改为 there are"},
+  {re:/\bI\s+have\s+\w+ed\s+last\s+\w+\b/i, msg:"现在完成时不能与明确的过去时间(last...)连用，应用一般过去时", sev:"warn", fix:"去掉 have/has，用一般过去时"},
+  {re:/\bin\s+the\s+future\b/i, msg:"'in the future' 与一般将来时搭配，注意时态一致", sev:"warn", fix:"确认句子时态为一般将来时"},
+  {re:/\bmake\s+\w+\s+to\s+\w+\b/i, msg:"make sb. do sth. 中动词用原形，不加 to", sev:"warn", fix:"删掉 to"},
+  {re:/\blet\s+\w+\s+to\s+\w+\b/i, msg:"let sb. do sth. 中动词用原形，不加 to", sev:"warn", fix:"删掉 to"},
+  {re:/\b\w+\s+is\s+more\s+\w+er\b/i, msg:"比较级重复（more + -er 不能同时用）", sev:"warn", fix:"删掉 more 或 -er 其中一个"},
+  {re:/\b\w+\s+don't\s+\w+\b/i, msg:"检查主谓一致：复数主语用 don't，单数用 doesn't", sev:"warn", fix:"根据主语单复数选择 don't 或 doesn't"}
 ];
 
 // ===== 简单句式检测（用于句式表达维度）=====
@@ -557,13 +557,25 @@ function findVocabUpgrades(text){
   return found;
 }
 
-// ===== 语法错误检测 =====
+// ===== 语法错误检测（返回详细定位信息）=====
 function findGrammarIssues(text){
   var issues = [];
-  GRAMMAR_RULES.forEach(function(rule){
-    if(rule.re.test(text)){
-      issues.push({msg:rule.msg, sev:rule.sev});
-    }
+  var sentences = text.split(/(?<=[.!?])\s+/).filter(function(s){ return s.trim().length > 0; });
+  sentences.forEach(function(sentence){
+    GRAMMAR_RULES.forEach(function(rule){
+      if(rule.re.test(sentence)){
+        // 找到错误匹配的具体片段，用于高亮
+        var match = sentence.match(rule.re);
+        var errText = match ? match[0] : "";
+        issues.push({
+          msg: rule.msg,
+          sev: rule.sev,
+          fix: rule.fix || "",
+          sentence: sentence.trim(),
+          errText: errText
+        });
+      }
+    });
   });
   return issues;
 }
@@ -983,6 +995,31 @@ function renderResult(res, vocab, issues, topic, text){
     });
   }
   html += '</div>';
+
+  // 语法错误修正（新模块：原句 + 红色高亮错误 + 修改建议）
+  if(issues.length > 0){
+    html += '<div class="panel sec"><h3>语法错误修正</h3>';
+    issues.forEach(function(it, idx){
+      // 把错误片段用红色高亮标出
+      var highlighted = it.sentence;
+      if(it.errText){
+        // 转义特殊字符后做高亮替换
+        var escaped = it.errText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        highlighted = highlighted.replace(new RegExp(escaped, 'i'), '<span style="color:#b3261e;font-weight:600;text-decoration:underline">' + it.errText + '</span>');
+      }
+      html += '<div class="issue" style="padding:10px 0">';
+      html += '<div style="font-size:13px;color:#8a8a86;margin-bottom:4px">错误 ' + (idx+1) + ' · <span class="tag ' + it.sev + '">' + (it.sev === 'bad' ? '严重' : '轻微') + '</span></div>';
+      html += '<div style="font-size:14px;line-height:1.6">' + highlighted + '</div>';
+      html += '<div style="margin-top:6px;font-size:13px">';
+      html += '<span style="color:#b3261e;font-weight:600">问题：</span>' + it.msg + '<br>';
+      if(it.fix){
+        html += '<span style="color:#2f6b4f;font-weight:600">修改建议：</span>' + it.fix;
+      }
+      html += '</div>';
+      html += '</div>';
+    });
+    html += '</div>';
+  }
 
   // 词汇升级
   if(vocab.length > 0){
