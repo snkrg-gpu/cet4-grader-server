@@ -28,14 +28,14 @@ module.exports = async function handler(req, res) {
   try {
     const { text } = req.body || {};
     if (!text || !text.trim()) {
-      return res.status(200).json({ ok: false, error: 'EMPTY_TEXT', issues: [] });
+      return res.status(200).json({ ok: false, error: 'EMPTY_TEXT', ver: 'v3', issues: [] });
     }
 
     const issues = await analyzeGrammar(text);
-    return res.status(200).json({ ok: true, issues });
+    return res.status(200).json({ ok: true, ver: 'v3', issues });
   } catch (e) {
-    console.error('grammar error:', e && e.message);
-    return res.status(200).json({ ok: false, error: 'API_ERROR', detail: (e && e.message) || String(e), issues: [] });
+    console.error('grammar error:', e && e.message, e && e.stack);
+    return res.status(200).json({ ok: false, error: 'API_ERROR', ver: 'v3', detail: (e && e.message) || String(e), issues: [] });
   }
 };
 
