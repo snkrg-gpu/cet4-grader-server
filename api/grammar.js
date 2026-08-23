@@ -35,7 +35,7 @@ module.exports = async function handler(req, res) {
     return res.status(200).json({ ok: true, issues });
   } catch (e) {
     console.error('grammar error:', e && e.message);
-    return res.status(200).json({ ok: false, error: 'API_ERROR', issues: [] });
+    return res.status(200).json({ ok: false, error: 'API_ERROR', detail: (e && e.message) || String(e), issues: [] });
   }
 };
 
