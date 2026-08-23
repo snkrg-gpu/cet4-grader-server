@@ -441,7 +441,18 @@ var GRAMMAR_RULES = [
   {re:/\bmake\s+\w+\s+to\s+\w+\b/i, msg:"make sb. do sth. 中动词用原形，不加 to", sev:"warn", fix:"删掉 to"},
   {re:/\blet\s+\w+\s+to\s+\w+\b/i, msg:"let sb. do sth. 中动词用原形，不加 to", sev:"warn", fix:"删掉 to"},
   {re:/\b\w+\s+is\s+more\s+\w+er\b/i, msg:"比较级重复（more + -er 不能同时用）", sev:"warn", fix:"删掉 more 或 -er 其中一个"},
-  {re:/\b\w+\s+don't\s+\w+\b/i, msg:"检查主谓一致：复数主语用 don't，单数用 doesn't", sev:"warn", fix:"根据主语单复数选择 don't 或 doesn't"}
+  {re:/\b\w+\s+don't\s+\w+\b/i, msg:"检查主谓一致：复数主语用 don't，单数用 doesn't", sev:"warn", fix:"根据主语单复数选择 don't 或 doesn't"},
+  {re:/\b(has|have|had)\s+very\s+\w+/i, msg:"词序错误：very 应放在形容词/副词前，不能修饰动词", sev:"bad", fix:"把 very 移到形容词前，如 has become very common"},
+  {re:/\bvery\s+(become|became|get|got|make|made|change|changed|improve|improved)\b/i, msg:"词序错误：very 不能直接修饰动词", sev:"bad", fix:"把 very 移到形容词/副词前，如 become very common"},
+  {re:/\b(these|those|many|several|a few|some)\s+(chance|student|problem|reason|way|thing|effect|benefit|challenge|application|robot|car|packet)\b/i, msg:"主谓/单复数不一致：these/those/many 等后应接复数名词", sev:"bad", fix:"把后面的单数名词改成复数（如 these chances）"},
+  {re:/\b(students?|people|they|we)\s+life\b/i, msg:"词性误用：life 是名词，此处应为动词 live", sev:"bad", fix:"life 改为 live"},
+  {re:/\bchalleges?\b/i, msg:"拼写错误：challenges（挑战）", sev:"bad", fix:"challeges 改为 challenges"},
+  {re:/\bjugement\b/i, msg:"拼写错误：judgment（判断）", sev:"bad", fix:"jugement 改为 judgment"},
+  {re:/\bpackets?\b/i, msg:"用词不当：packets 通常指包裹/数据包，此处可能想表达 schedules/材料", sev:"warn", fix:"根据语境改为 schedules、materials 或 resources"},
+  {re:/\bpersonalized\s+cars?\b/i, msg:"用词不当：personalized cars 搭配不合理，可能想表达个性化服务/助手", sev:"warn", fix:"改为 personalized services 或 personalized assistants"},
+  {re:/\b(lose|loses|lost)\s+to\s+\w+\b/i, msg:"搭配错误：lose to think 应为 lose the ability to think", sev:"bad", fix:"lose to think 改为 lose the ability to think"},
+  {re:/^\s*making\s+\w+\s+more\s+\w+/i, msg:"悬垂分词：making 缺少逻辑主语，句子成分残缺", sev:"bad", fix:"补全主语，如 making our learning more effective"},
+  {re:/\b(ai|a\.i\.)\s+has\s+very\b/i, msg:"词序错误：very 位置不当", sev:"bad", fix:"改为 has become very ... 而非 has very become"}
 ];
 
 // ===== 简单句式检测（用于句式表达维度）=====
