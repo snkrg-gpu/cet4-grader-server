@@ -120,6 +120,12 @@
   .ocr-status{font-size:13px;color:var(--muted)}
   .ocr-preview{max-width:100%;max-height:140px;border-radius:10px;margin-top:10px;border:1px solid var(--line);display:none}
 
+  /* 全屏图片预览弹层 */
+  .img-lightbox{position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;display:none;align-items:center;justify-content:center;padding:20px}
+  .img-lightbox.open{display:flex}
+  .img-lightbox img{max-width:100%;max-height:100%;border-radius:8px;object-fit:contain}
+  .img-lightbox .lb-close{position:absolute;top:16px;right:20px;width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,0.2);color:#fff;font-size:22px;line-height:40px;text-align:center;cursor:pointer;border:none}
+
   /* 快速估分 */
   .quick-desc textarea{min-height:140px}
   .quick-opt{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
@@ -1140,15 +1146,19 @@ var ocrGalleryFile = document.getElementById("ocrGalleryFile");
 var ocrStatus = document.getElementById("ocrStatus");
 var ocrPreview = document.getElementById("ocrPreview");
 
-// 预览按钮：切换图片显示/隐藏
+// 预览按钮：打开全屏大图查看
+var lbLightbox = document.getElementById("imgLightbox");
+var lbImg = document.getElementById("lbImg");
+var lbClose = document.getElementById("lbClose");
 ocrPreviewBtn.addEventListener("click", function(){
-  if(ocrPreview.style.display === "none" || ocrPreview.style.display === ""){
-    ocrPreview.style.display = "block";
-    ocrPreviewBtn.textContent = "🙈 隐藏图片";
-  } else {
-    ocrPreview.style.display = "none";
-    ocrPreviewBtn.textContent = "👁️ 预览图片";
+  if(ocrPreview.src){
+    lbImg.src = ocrPreview.src;
+    lbLightbox.classList.add("open");
   }
+});
+lbClose.addEventListener("click", function(){ lbLightbox.classList.remove("open"); });
+lbLightbox.addEventListener("click", function(e){
+  if(e.target === lbLightbox){ lbLightbox.classList.remove("open"); }
 });
 
 // 拍照按钮 → 触发带 capture 的 input（手机直接调起后置摄像头）
@@ -1471,5 +1481,11 @@ function quickAdvice(topic, tSel, band){
   return parts.join(" ");
 }
 </script>
+
+<!-- 全屏图片预览弹层 -->
+<div class="img-lightbox" id="imgLightbox">
+  <button class="lb-close" id="lbClose">×</button>
+  <img id="lbImg" alt="大图预览">
+</div>
 </body>
 </html>
