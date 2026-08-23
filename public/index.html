@@ -465,82 +465,104 @@ function detectSimpleSentences(text){
   return {total:sentences.length, simple:simpleCount, complex:complexCount};
 }
 
-// ===== 五维度打分 =====
-function gradeEssay(text, topic){
+// ===== 五维度打分（15分制，对应官方写作评分标准）=====
+function gradeEssay(text, topic, issues){
   var words = countWords(text);
   var sentences = detectSimpleSentences(text);
+  issues = issues || [];
 
-  // 1. 审题 (20)
-  var topicScore = 16;
+  // 统计语法错误：严重(bad)和轻微(warn)
+  var badCount = 0;
+  var warnCount = 0;
+  issues.forEach(function(it){
+    if(it.sev === "bad"){ badCount++; }
+    else { warnCount++; }
+  });
+
+  // 1. 审题（15分制，基准 12 分）
+  var topicScore = 12;
   var topicNote = "未选择题目，无法判断扣题程度，按基准分给分。";
   if(topic === "research"){
     var hasNec = /(necess|need|important|essential|must|should|necessary)/i.test(text);
     var hasPrac = /(practic|feasib|possible|realistic|apply|implement|carry out)/i.test(text);
-    if(hasNec && hasPrac){ topicScore = 18; topicNote = "同时涵盖必要性(necessity)与可行性(practicality)，扣题完整。"; }
-    else if(hasNec || hasPrac){ topicScore = 12; topicNote = "只写了必要性或可行性其中一面，属于「基本扣题/内容不完整」，是主要失分点。"; }
-    else { topicScore = 8; topicNote = "未明显涉及必要性或可行性，疑似偏题。"; }
+    if(hasNec && hasPrac){ topicScore = 14; topicNote = "同时涵盖必要性与可行性，扣题完整。"; }
+    else if(hasNec || hasPrac){ topicScore = 9; topicNote = "只写了必要性或可行性其中一面，基本扣题但内容不完整。"; }
+    else { topicScore = 4; topicNote = "未明显涉及必要性或可行性，疑似偏题。"; }
   } else if(topic === "robot"){
     var hasApp = /(robot|deliver|library|security|guide|service|application|apply|use)/i.test(text);
-    topicScore = hasApp ? 17 : 11;
+    topicScore = hasApp ? 13 : 7;
     topicNote = hasApp ? "围绕机器人在校园的应用展开，扣题。" : "需给出机器人的具体应用场景，避免泛泛而谈。";
   } else if(topic === "campus"){
     var hasProposal = /(should|propose|suggest|recommend|建议|增设|优化|improve|build)/i.test(text);
-    topicScore = hasProposal ? 17 : 11;
+    topicScore = hasProposal ? 13 : 7;
     topicNote = hasProposal ? "提出具体建议，符合提案类要求。" : "需提出具体可操作的建议，避免空泛论述。";
   } else if(topic && topic.length > 0){
-    // 自定义题目：提取题目关键词，判断作文是否围绕这些关键词展开
     var keywords = topic.toLowerCase().replace(/[^a-z\s]/g, " ").split(/\s+/).filter(function(w){ return w.length > 3 && !/^(the|and|for|with|that|this|about|should|what|your|you|are|was|were|have|has|will|would|can|could|not|from|into|their|they|them|which|when|where|how|why|does|do|did)$/i.test(w); });
     var lowerText = text.toLowerCase();
     var matched = 0;
-    keywords.forEach(function(kw){
-      if(lowerText.indexOf(kw) !== -1) matched++;
-    });
+    keywords.forEach(function(kw){ if(lowerText.indexOf(kw) !== -1) matched++; });
     var matchRatio = keywords.length > 0 ? matched / keywords.length : 0;
-    if(matchRatio >= 0.6){ topicScore = 17; topicNote = "围绕自定义题目「" + topic + "」展开，关键词覆盖率较高，扣题。"; }
-    else if(matchRatio >= 0.3){ topicScore = 12; topicNote = "部分涉及自定义题目「" + topic + "」的关键词，但覆盖不全，可能存在偏题。"; }
-    else { topicScore = 8; topicNote = "与自定义题目「" + topic + "」关联度低，可能跑题，需检查是否回应了题目要求。"; }
+    if(matchRatio >= 0.6){ topicScore = 13; topicNote = "围绕自定义题目展开，关键词覆盖率较高，扣题。"; }
+    else if(matchRatio >= 0.3){ topicScore = 9; topicNote = "部分涉及题目关键词，但覆盖不全，可能偏题。"; }
+    else { topicScore = 4; topicNote = "与题目关联度低，可能跑题。"; }
   }
 
-  // 2. 文章结构 (20)
+  // 2. 文章结构（15分制）
   var paragraphs = text.split(/\n\s*\n/).filter(function(p){ return p.trim().length > 0; });
-  var structScore = 14;
-  if(paragraphs.length >= 3){ structScore = 17; }
-  else if(paragraphs.length === 2){ structScore = 13; }
-  else if(paragraphs.length === 1){ structScore = 9; }
+  var structScore = 10;
+  if(paragraphs.length >= 3){ structScore = 13; }
+  else if(paragraphs.length === 2){ structScore = 9; }
+  else if(paragraphs.length === 1){ structScore = 5; }
   var structNote = paragraphs.length >= 3 ? "三段式结构清晰（开头-主体-结尾）。" :
-                   paragraphs.length === 2 ? "建议补齐三段式结构（开头-主体-结尾）。" :
+                   paragraphs.length === 2 ? "建议补齐三段式结构。" :
                    "缺少段落划分，建议采用标准三段式结构。";
 
-  // 3. 句式表达 (20)
+  // 3. 句式表达（15分制）
   var ratio = sentences.total > 0 ? sentences.complex / sentences.total : 0;
-  var sentScore = 12;
-  if(ratio >= 0.6) sentScore = 17;
-  else if(ratio >= 0.4) sentScore = 15;
-  else if(ratio >= 0.2) sentScore = 12;
-  else sentScore = 9;
-  var sentNote = "长句占比约 " + Math.round(ratio*100) + "%" + (ratio < 0.4 ? "，句式偏单一，建议增加复合句、倒装句等。" : "，句式有一定变化。");
+  var sentScore = 9;
+  if(ratio >= 0.6) sentScore = 13;
+  else if(ratio >= 0.4) sentScore = 11;
+  else if(ratio >= 0.2) sentScore = 9;
+  else sentScore = 6;
+  var sentNote = "长句占比约 " + Math.round(ratio*100) + "%" + (ratio < 0.4 ? "，句式偏单一。" : "，句式有一定变化。");
 
-  // 4. 内容逻辑 (20)
+  // 4. 内容逻辑（15分制）
   var hasExample = /(for example|for instance|such as|take .* as an example|比如|例如)/i.test(text);
-  var logicScore = hasExample ? 15 : 11;
+  var logicScore = hasExample ? 11 : 7;
   var logicNote = hasExample ? "有具体例子支撑论点。" : "建议用具体例子支撑论点，避免空泛论述。";
 
-  // 5. 整体结构 (20)
+  // 5. 整体连贯（15分制）
   var hasTrans = /(however|moreover|furthermore|therefore|in addition|on the other hand|in conclusion|first|second|finally)/i.test(text);
-  var overallScore = hasTrans ? 15 : 11;
-  var overallNote = hasTrans ? "有过渡词，段落衔接较好。" : "建议增加过渡词（如 however, moreover, therefore）增强连贯性。";
+  var overallScore = hasTrans ? 11 : 7;
+  var overallNote = hasTrans ? "有过渡词，段落衔接较好。" : "建议增加过渡词增强连贯性。";
 
-  // 字数扣分
+  // ===== 核心：语法错误扣分（按数量分档，客观、不虚高）=====
+  // 严重错误权重高，轻微错误权重低，封顶避免过度扣分
+  var grammarPenalty = 0;
+  if(badCount === 0 && warnCount === 0){ grammarPenalty = 0; }
+  else if(badCount === 0){ grammarPenalty = Math.min(2, warnCount * 0.5); }
+  else if(badCount <= 2){ grammarPenalty = Math.min(4, badCount * 1.5 + warnCount * 0.3); }
+  else if(badCount <= 4){ grammarPenalty = Math.min(6, 3 + (badCount - 2) * 1 + warnCount * 0.3); }
+  else if(badCount <= 7){ grammarPenalty = Math.min(9, 5 + (badCount - 4) * 1 + warnCount * 0.3); }
+  else { grammarPenalty = Math.min(11, 8 + warnCount * 0.3); }
+  grammarPenalty = Math.round(grammarPenalty * 10) / 10;
+  var grammarNote = "严重错误 " + badCount + " 处、轻微错误 " + warnCount + " 处。";
+
+  // ===== 字数扣分（严格按标准：少10词扣1分，少于一半直接2分档）=====
   var wordPenalty = 0;
   var wordNote = words + " 词（标准 120–180 词）。";
-  if(words < 90){ wordPenalty = 8; wordNote += " 严重不足，直接落入低分档。"; }
-  else if(words < 100){ wordPenalty = 3; wordNote += " 不足，扣 3 分。"; }
-  else if(words < 120){ wordPenalty = 1; wordNote += " 略不足，扣 1 分。"; }
+  var wordHalf = false;
+  if(words < 60){ wordPenalty = 15; wordHalf = true; wordNote += " 少于标准一半，直接按 2 分档。"; }
+  else if(words < 120){ wordPenalty = Math.ceil((120 - words) / 10); wordNote += " 不足，少 " + (120 - words) + " 词，扣 " + wordPenalty + " 分。"; }
   else if(words > 180){ wordNote += " 超出标准，可能影响卷面分。"; }
   else { wordNote += " 字数达标。"; }
 
-  var rawTotal = topicScore + structScore + sentScore + logicScore + overallScore;
-  var total = Math.max(0, rawTotal - wordPenalty);
+  // ===== 合成 15 分制总分 =====
+  // 基础分 = 五维度平均（15分制），再扣语法和字数
+  var baseAvg = (topicScore + structScore + sentScore + logicScore + overallScore) / 5;
+  var total = baseAvg - grammarPenalty - wordPenalty;
+  if(wordHalf){ total = Math.min(total, 2); } // 少于一半直接压到2分档
+  total = Math.max(0, Math.min(15, total));
 
   return {
     words: words, wordPenalty: wordPenalty, wordNote: wordNote,
@@ -549,7 +571,10 @@ function gradeEssay(text, topic){
     sentScore: sentScore, sentNote: sentNote,
     logicScore: logicScore, logicNote: logicNote,
     overallScore: overallScore, overallNote: overallNote,
-    total: total, rawTotal: rawTotal
+    grammarPenalty: grammarPenalty, grammarNote: grammarNote,
+    badCount: badCount, warnCount: warnCount,
+    total: Math.round(total * 10) / 10,
+    rawTotal: Math.round(baseAvg * 10) / 10
   };
 }
 
@@ -793,11 +818,11 @@ function findSentenceUpgrades(text){
 
 // ===== 分数档位 =====
 function getBand(total){
-  if(total >= 90) return {band:"14分档", score:"13–15 分", desc:"优秀，稳进高分档"};
-  if(total >= 80) return {band:"11分档", score:"10–12 分", desc:"良好，过线稳妥"};
-  if(total >= 70) return {band:"8分档", score:"7–9 分", desc:"及格，需改进"};
-  if(total >= 60) return {band:"5分档", score:"4–6 分", desc:"偏弱，明显不足"};
-  return {band:"2分档", score:"1–3 分", desc:"不合格，需大幅修改"};
+  if(total >= 13) return {band:"14分档", score:"13–15 分", desc:"完全扣题，表达清晰流畅，基本无语法错误"};
+  if(total >= 10) return {band:"11分档", score:"10–12 分", desc:"扣题，表达清楚，文字连贯，少量语法错误"};
+  if(total >= 7)  return {band:"8分档", score:"7–9 分", desc:"基本扣题，表达不够清晰，语法错误较多"};
+  if(total >= 4)  return {band:"5分档", score:"4–6 分", desc:"基本不扣题，表达混乱，严重语法错误多"};
+  return {band:"2分档", score:"1–3 分", desc:"完全跑题，句子支离破碎，大部分是严重错误"};
 }
 
 // ===== 老师式改进建议（根据当前档次往前进）=====
@@ -807,12 +832,13 @@ function buildTeacherSuggestions(res, issues){
 
   // 先点出核心短板
   var weakDims = [];
-  if(res.topicScore < 15) weakDims.push("审题");
-  if(res.structScore < 15) weakDims.push("文章结构");
-  if(res.sentScore < 15) weakDims.push("句式表达");
-  if(res.logicScore < 15) weakDims.push("内容逻辑");
-  if(res.overallScore < 15) weakDims.push("整体连贯");
+  if(res.topicScore < 11) weakDims.push("审题");
+  if(res.structScore < 11) weakDims.push("文章结构");
+  if(res.sentScore < 11) weakDims.push("句式表达");
+  if(res.logicScore < 11) weakDims.push("内容逻辑");
+  if(res.overallScore < 11) weakDims.push("整体连贯");
   if(res.wordPenalty > 0) weakDims.push("字数");
+  if(res.grammarPenalty > 0) weakDims.push("语法错误");
 
   // 根据档次给出“冲下一档”的具体路径
   if(band.band === "2分档"){
@@ -847,18 +873,19 @@ function buildReportText(res, vocab, issues, topic, text){
   var band = getBand(res.total);
   var lines = [];
   lines.push("===== CET-4 作文批改报告 =====");
-  lines.push("总分：" + res.total + " / 100（" + band.band + "，" + band.score + "）");
-  lines.push("官方等效：约 " + Math.round(res.total*1.065) + " / 106.5 分");
+  lines.push("总分：" + res.total + " / 15（" + band.band + "，" + band.score + "）");
+  lines.push("官方等效：约 " + Math.round(res.total*7.1) + " / 106.5 分");
   if(topic) lines.push("题目：" + topic);
   lines.push("");
   lines.push("【字数】" + res.wordNote);
   lines.push("");
   lines.push("【五维度评分】");
-  lines.push("审题：" + res.topicScore + "/20 —— " + res.topicNote);
-  lines.push("文章结构：" + res.structScore + "/20 —— " + res.structNote);
-  lines.push("句式表达：" + res.sentScore + "/20 —— " + res.sentNote);
-  lines.push("内容逻辑：" + res.logicScore + "/20 —— " + res.logicNote);
-  lines.push("整体结构：" + res.overallScore + "/20 —— " + res.overallNote);
+  lines.push("审题：" + res.topicScore + "/15 —— " + res.topicNote);
+  lines.push("文章结构：" + res.structScore + "/15 —— " + res.structNote);
+  lines.push("句式表达：" + res.sentScore + "/15 —— " + res.sentNote);
+  lines.push("内容逻辑：" + res.logicScore + "/15 —— " + res.logicNote);
+  lines.push("整体连贯：" + res.overallScore + "/15 —— " + res.overallNote);
+  lines.push("语法扣分：" + res.grammarNote + "（扣 " + res.grammarPenalty + " 分）");
   lines.push("");
   lines.push("【常见失分点】");
   if(issues.length === 0){ lines.push("- 未检测到明显语法错误"); }
@@ -969,12 +996,13 @@ function renderResult(res, vocab, issues, topic, text){
 
   // 分数总览
   html += '<div class="score-hero">';
-  html += '<div class="score-ring"><div class="num">' + res.total + '</div><div class="lbl">/ 100 分</div></div>';
+  html += '<div class="score-ring"><div class="num">' + res.total + '</div><div class="lbl">/ 15 分</div></div>';
   html += '<div class="score-meta">';
   html += '<span class="band">' + band.band + ' · ' + band.score + '</span>';
   html += '<p><b>' + band.desc + '</b></p>';
   html += '<p>' + res.wordNote + '</p>';
-  html += '<p>官方等效：约 ' + Math.round(res.total*1.065) + ' / 106.5 分</p>';
+  html += '<p>' + res.grammarNote + '</p>';
+  html += '<p>官方等效：约 ' + Math.round(res.total*7.1) + ' / 106.5 分</p>';
   html += '</div></div>';
 
   // 五维度
@@ -984,11 +1012,11 @@ function renderResult(res, vocab, issues, topic, text){
     ["文章结构", res.structScore, res.structNote],
     ["句式表达", res.sentScore, res.sentNote],
     ["内容逻辑", res.logicScore, res.logicNote],
-    ["整体结构", res.overallScore, res.overallNote]
+    ["整体连贯", res.overallScore, res.overallNote]
   ];
   dims.forEach(function(d){
-    var pct = Math.round(d[1]/20*100);
-    html += '<tr><td>' + d[0] + '</td><td class="num">' + d[1] + '/20</td>';
+    var pct = Math.round(d[1]/15*100);
+    html += '<tr><td>' + d[0] + '</td><td class="num">' + d[1] + '/15</td>';
     html += '<td><div class="bar"><i style="width:' + pct + '%"></i></div><div style="font-size:12px;color:#8a8a86;margin-top:4px">' + d[2] + '</div></td></tr>';
   });
   html += '</table></div>';
@@ -1144,16 +1172,18 @@ document.getElementById("gradeBtn").addEventListener("click", function(){
     document.getElementById("result").style.display = "block";
     return;
   }
-  var res = gradeEssay(text, topic);
   var vocab = findVocabUpgrades(text);
   var issues = findGrammarIssues(text);
+  var res = gradeEssay(text, topic, issues);
   renderResult(res, vocab, issues, topic, text);
 
   // 异步调用豆包 AI 做更全面的语法分析，成功后合并结果重新渲染
   callGrammarAI(text, function(aiIssues){
     if(aiIssues && aiIssues.length > 0){
       var merged = mergeIssues(issues, aiIssues);
-      renderResult(res, vocab, merged, topic, text);
+      // 语法错误变了，重新计算打分（更客观）
+      var res2 = gradeEssay(text, topic, merged);
+      renderResult(res2, vocab, merged, topic, text);
     }
   });
 });
