@@ -1007,7 +1007,7 @@ var SAMPLES = {
 };
 
 // ===== 渲染结果 =====
-function renderResult(res, vocab, issues, topic, text){
+function renderResult(res, vocab, issues, topic, text, rewrite){
   var band = getBand(res.total);
   var html = "";
 
@@ -1161,9 +1161,12 @@ function renderResult(res, vocab, issues, topic, text){
   if(topic && SAMPLES[topic]){
     var s = SAMPLES[topic];
     html += '<div class="panel sec" id="samplePanel"><h3>高分范文参考</h3><div class="sample"><div class="en">' + s.en.replace(/\n/g,'<br>') + '</div><div class="cn">' + s.cn.replace(/\n/g,'<br>') + '</div></div></div>';
+  } else if(rewrite && rewrite.en){
+    // 已有润色结果，直接渲染
+    html += '<div class="panel sec" id="samplePanel"><h3>你的作文改进版</h3><div class="sample"><div class="en">' + rewrite.en.replace(/\n/g,'<br>') + '</div>' + (rewrite.cn ? '<div class="cn">' + rewrite.cn.replace(/\n/g,'<br>') + '</div>' : '') + '</div></div>';
   } else {
-    // 无题目：先显示占位，异步调用 AI 润色后填充
-    html += '<div class="panel sec" id="samplePanel"><h3>你的作文改进版</h3><div class="sample"><div class="en" id="rewriteEn" style="color:#8a8a86">正在生成改进版…</div><div class="cn" id="rewriteCn"></div></div></div>';
+    // 无题目且无润色结果：占位
+    html += '<div class="panel sec" id="samplePanel"><h3>你的作文改进版</h3><div class="sample"><div class="en" style="color:#8a8a86">改进版生成失败，请检查网络或稍后重试。</div></div></div>';
   }
 
   document.getElementById("result").innerHTML = html;
@@ -1173,24 +1176,6 @@ function renderResult(res, vocab, issues, topic, text){
 
   // 生成纯文本报告供复制
   window.__reportText = buildReportText(res, vocab, issues, topic, text);
-
-  // 无题目时，异步调用 AI 润色生成改进版
-  if(!topic || !SAMPLES[topic]){
-    callRewriteAI(text, function(en, cn){
-      var enEl = document.getElementById("rewriteEn");
-      var cnEl = document.getElementById("rewriteCn");
-      if(enEl && en){
-        enEl.style.color = "";
-        enEl.innerHTML = en.replace(/\n/g,'<br>');
-      } else if(enEl){
-        enEl.style.color = "#b3541e";
-        enEl.textContent = "改进版生成失败，请检查网络或稍后重试。";
-      }
-      if(cnEl && cn){
-        cnEl.innerHTML = cn.replace(/\n/g,'<br>');
-      }
-    });
-  }
 }
 
 // 调用后端 /api/rewrite，用豆包大模型润色作文
@@ -1240,14 +1225,35 @@ document.getElementById("gradeBtn").addEventListener("click", function(){
 
   var vocab = findVocabUpgrades(text);
 
-  // 先调 AI 语法分析，拿到结果后再统一渲染
-  callGrammarAI(text, function(aiIssues){
+  // 并行发起：语法分析（必做）+ 润色（无题目时）
+  var needRewrite = (!topic || !SAMPLES[topic]);
+  var grammarDone = false;
+  var rewriteDone = !needRewrite; // 有题目时不需要润色，直接视为完成
+  var aiIssues = null;
+  var rewriteResult = null;
+
+  function tryRender(){
+    if(!grammarDone || !rewriteDone) return;
     var localIssues = findGrammarIssues(text);
     var merged = (aiIssues && aiIssues.length > 0) ? mergeIssues(localIssues, aiIssues) : localIssues;
     var res = gradeEssay(text, topic, merged);
-    renderResult(res, vocab, merged, topic, text);
+    renderResult(res, vocab, merged, topic, text, rewriteResult);
     document.getElementById("gradeBtn").disabled = false;
+  }
+
+  callGrammarAI(text, function(issues){
+    aiIssues = issues;
+    grammarDone = true;
+    tryRender();
   });
+
+  if(needRewrite){
+    callRewriteAI(text, function(en, cn){
+      if(en){ rewriteResult = { en: en, cn: cn || "" }; }
+      rewriteDone = true;
+      tryRender();
+    });
+  }
 });
 
 // 调用后端 /api/grammar，用豆包大模型做语法分析
