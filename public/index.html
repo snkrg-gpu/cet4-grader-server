@@ -181,6 +181,13 @@
         </select>
         <label style="margin-top:12px">自定义题目（自己输入作文题目，用于审题判断）</label>
         <input type="text" id="customTopic" placeholder="例如：Should college students do part-time jobs?">
+        <div class="ocr-row" style="margin-top:8px">
+          <button class="ocr-btn" id="topicCameraBtn" type="button">📷 拍题目</button>
+          <button class="ocr-btn" id="topicGalleryBtn" type="button">🖼️ 选题目图</button>
+          <input type="file" id="topicCameraFile" accept="image/*" capture="environment" style="display:none">
+          <input type="file" id="topicGalleryFile" accept="image/*" style="display:none">
+          <span class="ocr-status" id="topicOcrStatus"></span>
+        </div>
       </div>
 
       <div class="panel">
@@ -217,6 +224,13 @@
         </select>
         <label style="margin-top:12px">自定义题目（自己输入作文题目）</label>
         <input type="text" id="quickCustomTopic" placeholder="例如：Should college students do part-time jobs?">
+        <div class="ocr-row" style="margin-top:8px">
+          <button class="ocr-btn" id="quickTopicCameraBtn" type="button">📷 拍题目</button>
+          <button class="ocr-btn" id="quickTopicGalleryBtn" type="button">🖼️ 选题目图</button>
+          <input type="file" id="quickTopicCameraFile" accept="image/*" capture="environment" style="display:none">
+          <input type="file" id="quickTopicGalleryFile" accept="image/*" style="display:none">
+          <span class="ocr-status" id="quickTopicOcrStatus"></span>
+        </div>
       </div>
       <div class="panel">
         <h3>2. 描述你的写作情况</h3>
@@ -1543,6 +1557,70 @@ function runOcrSingle(file, onSuccess, onError){
 
 ocrCameraFile.addEventListener("change", function(e){ handleOcrFiles(e.target.files); });
 ocrGalleryFile.addEventListener("change", function(e){ handleOcrFiles(e.target.files); });
+
+// ===== 题目 OCR：识别题目文字填入指定输入框 =====
+function runTopicOcr(file, statusEl, inputEl, onDone){
+  if(typeof Tesseract === "undefined"){
+    if(statusEl) statusEl.textContent = "OCR 库未加载";
+    if(onDone) onDone();
+    return;
+  }
+  if(statusEl) statusEl.textContent = "识别中，请稍候…";
+  var basePath = window.location.pathname.replace(/\/[^/]*$/, "");
+  if(basePath === ""){ basePath = "/"; }
+  if(basePath.charAt(basePath.length-1) !== "/"){ basePath += "/"; }
+  var ocrBase = basePath + "ocr/";
+  Tesseract.recognize(file, "eng", {
+    workerPath: ocrBase + "worker.min.js",
+    corePath: ocrBase,
+    langPath: ocrBase,
+    logger: function(m){
+      if(statusEl && m.status === "recognizing text"){
+        statusEl.textContent = "识别中… " + Math.round(m.progress*100) + "%";
+      }
+    }
+  }).then(function(res){
+    var text = (res.data && res.data.text ? res.data.text : "").trim();
+    // 题目通常是单行/短文本，取第一行非空内容
+    text = text.split(/\n/).filter(function(l){ return l.trim(); }).join(" ").trim();
+    if(inputEl && text){ inputEl.value = text; }
+    if(statusEl){ statusEl.textContent = text ? "识别完成" : "未识别到文字"; }
+    if(onDone) onDone(text);
+  }).catch(function(err){
+    var msg = err && err.message ? err.message : "未知错误";
+    if(statusEl) statusEl.textContent = "识别失败：" + msg;
+    if(onDone) onDone();
+  });
+}
+
+// 绑定一个题目 OCR 按钮组（拍照 + 相册 + 状态 + 目标输入框）
+function bindTopicOcr(cameraBtnId, galleryBtnId, cameraFileId, galleryFileId, statusId, inputId){
+  var cameraBtn = document.getElementById(cameraBtnId);
+  var galleryBtn = document.getElementById(galleryBtnId);
+  var cameraFile = document.getElementById(cameraFileId);
+  var galleryFile = document.getElementById(galleryFileId);
+  var statusEl = document.getElementById(statusId);
+  var inputEl = document.getElementById(inputId);
+  if(!cameraBtn || !galleryBtn || !cameraFile || !galleryFile) return;
+
+  cameraBtn.addEventListener("click", function(){ cameraFile.click(); });
+  galleryBtn.addEventListener("click", function(){ galleryFile.click(); });
+
+  function handleFile(file){
+    if(!file) return;
+    compressImage(file, 1600, function(compressedFile){
+      runTopicOcr(compressedFile, statusEl, inputEl);
+    }, function(){
+      runTopicOcr(file, statusEl, inputEl);
+    });
+  }
+  cameraFile.addEventListener("change", function(e){ handleFile(e.target.files[0]); });
+  galleryFile.addEventListener("change", function(e){ handleFile(e.target.files[0]); });
+}
+
+// 绑定两个自定义题目输入框的 OCR
+bindTopicOcr("topicCameraBtn", "topicGalleryBtn", "topicCameraFile", "topicGalleryFile", "topicOcrStatus", "customTopic");
+bindTopicOcr("quickTopicCameraBtn", "quickTopicGalleryBtn", "quickTopicCameraFile", "quickTopicGalleryFile", "quickTopicOcrStatus", "quickCustomTopic");
 
 // 检测安卓 + 非 Chrome，显示建议提示
 (function(){
