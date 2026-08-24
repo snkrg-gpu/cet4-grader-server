@@ -162,6 +162,9 @@
       <p>本地规则引擎，离线可用。支持粘贴或拍照上传作文进行详细批改，也支持根据口头描述快速估分。</p>
     </div>
 
+    <!-- 全局提示：安卓非 Chrome 浏览器 OCR 识别慢 -->
+    <div id="androidTip" style="display:none;margin:0 0 14px;padding:12px 14px;background:#fbeedf;border:1px solid #f0d9c0;border-radius:10px;font-size:14px;color:#b3541e">💡 提示：安卓手机建议用 <b>Chrome 浏览器</b>打开，拍照/相册识别（作文和题目）会更快更稳定。</div>
+
     <!-- 模式切换 -->
     <div class="mode-tabs">
       <button class="mode-tab active" data-mode="grade" id="tabGrade">📖 作文批改</button>
@@ -201,7 +204,6 @@
           <input type="file" id="ocrGalleryFile" accept="image/*" multiple style="display:none">
           <span class="ocr-status" id="ocrStatus"></span>
         </div>
-        <div id="androidTip" style="display:none;margin-top:10px;padding:10px 12px;background:#fbeedf;border:1px solid #f0d9c0;border-radius:8px;font-size:13px;color:#b3541e">💡 提示：安卓手机建议用 Chrome 浏览器打开，识别速度会更快。</div>
         <div class="ocr-preview-wrap" id="ocrPreviewWrap" style="display:none"></div>
         <div class="word-hint" id="wordHint">0 词</div>
         <div class="btn-row">
