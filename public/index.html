@@ -1700,17 +1700,28 @@ function renderTopicAnalysis(a){
   var box = document.getElementById("topicAnalysis");
   if(!box) return;
   var html = '';
+  // 文体判断：用醒目的标签
   if(a.genre){
-    html += '<div style="margin-bottom:8px"><span style="display:inline-block;padding:2px 10px;border-radius:12px;background:#e8f2ec;color:#2f6b4f;font-weight:600">' + a.genre + '</span>' + (a.genreReason ? '<span style="color:#8a8a86;font-size:13px;margin-left:8px">' + a.genreReason + '</span>' : '') + '</div>';
+    var genreColor = (a.genre.indexOf("应用文") !== -1) ? "#3b5bdb" : "#b3541e";
+    var genreBg = (a.genre.indexOf("应用文") !== -1) ? "#eef3ff" : "#fbeedf";
+    html += '<div style="margin-bottom:10px"><span style="display:inline-block;padding:3px 12px;border-radius:14px;background:' + genreBg + ';color:' + genreColor + ';font-weight:700;font-size:15px">📌 ' + a.genre + '</span>' + (a.genreReason ? '<span style="color:#8a8a86;font-size:13px;margin-left:8px">' + a.genreReason + '</span>' : '') + '</div>';
   }
-  if(a.translation){ html += '<div style="margin-bottom:6px"><b>翻译：</b>' + a.translation + '</div>'; }
-  if(a.analysis){ html += '<div style="margin-bottom:6px"><b>题目分析：</b>' + a.analysis + '</div>'; }
-  if(a.difficulty){ html += '<div style="margin-bottom:6px"><b>题目难点：</b>' + a.difficulty + '</div>'; }
-  if(a.approach){ html += '<div style="margin-bottom:6px"><b>写作思路：</b>' + a.approach.replace(/\n/g,'<br>') + '</div>'; }
-  if(a.essence){ html += '<div style="margin-bottom:6px"><b>思路凝练（8字）：</b><span style="color:#b3541e;font-weight:700;font-size:16px">' + a.essence + '</span></div>'; }
-  if(a.essenceNote){ html += '<div style="margin-bottom:6px"><b>思路解析：</b>' + a.essenceNote + '</div>'; }
-  if(a.technique){ html += '<div style="margin-bottom:6px"><b>写作技巧：</b>' + a.technique + '</div>'; }
-  if(a.transfer){ html += '<div style="margin-bottom:6px"><b>举一反三：</b>' + a.transfer + '</div>'; }
+  // 翻译：蓝色
+  if(a.translation){ html += '<div style="margin-bottom:8px;padding:8px 10px;background:#eef3ff;border-radius:8px"><b style="color:#3b5bdb">翻译：</b><span style="font-weight:600">' + a.translation + '</span></div>'; }
+  // 题目分析
+  if(a.analysis){ html += '<div style="margin-bottom:8px"><b style="color:#2f6b4f">题目分析：</b>' + a.analysis + '</div>'; }
+  // 题目难点：红色警示
+  if(a.difficulty){ html += '<div style="margin-bottom:8px"><b style="color:#b3261e">⚠️ 题目难点：</b>' + a.difficulty + '</div>'; }
+  // 写作思路
+  if(a.approach){ html += '<div style="margin-bottom:8px"><b style="color:#2f6b4f">写作思路：</b>' + a.approach.replace(/\n/g,'<br>') + '</div>'; }
+  // 8字凝练：最醒目
+  if(a.essence){ html += '<div style="margin:10px 0;padding:10px 12px;background:#fbeedf;border:1px solid #f0d9c0;border-radius:8px"><b style="color:#b3541e">🎯 思路凝练（8字）：</b><span style="color:#b3541e;font-weight:800;font-size:20px;letter-spacing:2px">' + a.essence + '</span></div>'; }
+  // 思路解析
+  if(a.essenceNote){ html += '<div style="margin-bottom:8px"><b style="color:#2f6b4f">思路解析：</b>' + a.essenceNote + '</div>'; }
+  // 写作技巧：绿色
+  if(a.technique){ html += '<div style="margin-bottom:8px"><b style="color:#2f6b4f">💡 写作技巧：</b>' + a.technique + '</div>'; }
+  // 举一反三：绿色
+  if(a.transfer){ html += '<div style="margin-bottom:8px;padding:8px 10px;background:#e8f2ec;border-radius:8px"><b style="color:#2f6b4f">🔁 举一反三：</b>' + a.transfer + '</div>'; }
   box.innerHTML = html;
   box.style.display = "block";
 }
