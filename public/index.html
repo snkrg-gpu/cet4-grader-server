@@ -192,6 +192,7 @@
           <span class="ocr-status" id="topicOcrStatus"></span>
         </div>
         <button class="ocr-btn" id="topicAnalyzeBtn" type="button" style="margin-top:8px">🔍 分析题目</button>
+        <button class="ocr-btn" id="topicClearBtn" type="button" style="margin-top:8px">🗑️ 清空题目</button>
         <div id="topicAnalysis" style="display:none;margin-top:10px;padding:12px 14px;background:#f7f7f5;border:1px solid var(--line);border-radius:10px;font-size:14px;line-height:1.7"></div>
       </div>
 
@@ -1762,6 +1763,21 @@ function callTopicAnalysis(topic){
       var topic = input.value.trim();
       if(!topic){ alert("请先输入或识别题目"); return; }
       callTopicAnalysis(topic);
+    });
+  }
+})();
+
+// 绑定「清空题目」按钮
+(function(){
+  var btn = document.getElementById("topicClearBtn");
+  var input = document.getElementById("customTopic");
+  var box = document.getElementById("topicAnalysis");
+  if(btn && input){
+    btn.addEventListener("click", function(){
+      input.value = "";
+      if(box){ box.style.display = "none"; box.innerHTML = ""; }
+      var st = document.getElementById("topicOcrStatus");
+      if(st){ st.textContent = ""; }
     });
   }
 })();
