@@ -1714,8 +1714,12 @@ function renderTopicAnalysis(a){
   if(a.difficulty){ html += '<div style="margin-bottom:8px"><b style="color:#b3261e">⚠️ 题目难点：</b>' + a.difficulty + '</div>'; }
   // 写作思路
   if(a.approach){ html += '<div style="margin-bottom:8px"><b style="color:#2f6b4f">写作思路：</b>' + a.approach.replace(/\n/g,'<br>') + '</div>'; }
-  // 8字凝练：最醒目
-  if(a.essence){ html += '<div style="margin:10px 0;padding:10px 12px;background:#fbeedf;border:1px solid #f0d9c0;border-radius:8px"><b style="color:#b3541e">🎯 思路凝练（8字）：</b><span style="color:#b3541e;font-weight:800;font-size:20px;letter-spacing:2px">' + a.essence + '</span></div>'; }
+  // 8字凝练：最醒目（校验字数，不足8字时提示）
+  if(a.essence){
+    var essLen = a.essence.replace(/[，,、\s]/g, '').length; // 去掉标点和空格后数字数
+    var label = (essLen === 8) ? '思路凝练（8字）' : '思路凝练（' + essLen + '字，建议8字）';
+    html += '<div style="margin:10px 0;padding:10px 12px;background:#fbeedf;border:1px solid #f0d9c0;border-radius:8px"><b style="color:#b3541e">🎯 ' + label + '：</b><span style="color:#b3541e;font-weight:800;font-size:20px;letter-spacing:2px">' + a.essence + '</span></div>';
+  }
   // 思路解析
   if(a.essenceNote){ html += '<div style="margin-bottom:8px"><b style="color:#2f6b4f">思路解析：</b>' + a.essenceNote + '</div>'; }
   // 写作技巧：绿色
