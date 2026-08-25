@@ -191,6 +191,8 @@
           <input type="file" id="topicGalleryFile" accept="image/*" style="display:none">
           <span class="ocr-status" id="topicOcrStatus"></span>
         </div>
+        <button class="ocr-btn" id="topicAnalyzeBtn" type="button" style="margin-top:8px">🔍 分析题目</button>
+        <div id="topicAnalysis" style="display:none;margin-top:10px;padding:12px 14px;background:#f7f7f5;border:1px solid var(--line);border-radius:10px;font-size:14px;line-height:1.7"></div>
       </div>
 
       <div class="panel">
@@ -1692,6 +1694,66 @@ function bindTopicOcr(cameraBtnId, galleryBtnId, cameraFileId, galleryFileId, st
 // 绑定两个自定义题目输入框的 OCR
 bindTopicOcr("topicCameraBtn", "topicGalleryBtn", "topicCameraFile", "topicGalleryFile", "topicOcrStatus", "customTopic");
 bindTopicOcr("quickTopicCameraBtn", "quickTopicGalleryBtn", "quickTopicCameraFile", "quickTopicGalleryFile", "quickTopicOcrStatus", "quickCustomTopic");
+
+// ===== 题目分析：分析自定义题目（翻译/难点/思路/8字凝练/举一反三/文体）=====
+function renderTopicAnalysis(a){
+  var box = document.getElementById("topicAnalysis");
+  if(!box) return;
+  var html = '';
+  if(a.genre){
+    html += '<div style="margin-bottom:8px"><span style="display:inline-block;padding:2px 10px;border-radius:12px;background:#e8f2ec;color:#2f6b4f;font-weight:600">' + a.genre + '</span>' + (a.genreReason ? '<span style="color:#8a8a86;font-size:13px;margin-left:8px">' + a.genreReason + '</span>' : '') + '</div>';
+  }
+  if(a.translation){ html += '<div style="margin-bottom:6px"><b>翻译：</b>' + a.translation + '</div>'; }
+  if(a.analysis){ html += '<div style="margin-bottom:6px"><b>题目分析：</b>' + a.analysis + '</div>'; }
+  if(a.difficulty){ html += '<div style="margin-bottom:6px"><b>题目难点：</b>' + a.difficulty + '</div>'; }
+  if(a.approach){ html += '<div style="margin-bottom:6px"><b>写作思路：</b>' + a.approach.replace(/\n/g,'<br>') + '</div>'; }
+  if(a.essence){ html += '<div style="margin-bottom:6px"><b>思路凝练（8字）：</b><span style="color:#b3541e;font-weight:700;font-size:16px">' + a.essence + '</span></div>'; }
+  if(a.essenceNote){ html += '<div style="margin-bottom:6px"><b>思路解析：</b>' + a.essenceNote + '</div>'; }
+  if(a.technique){ html += '<div style="margin-bottom:6px"><b>写作技巧：</b>' + a.technique + '</div>'; }
+  if(a.transfer){ html += '<div style="margin-bottom:6px"><b>举一反三：</b>' + a.transfer + '</div>'; }
+  box.innerHTML = html;
+  box.style.display = "block";
+}
+
+function callTopicAnalysis(topic){
+  var box = document.getElementById("topicAnalysis");
+  var btn = document.getElementById("topicAnalyzeBtn");
+  if(btn) btn.disabled = true;
+  if(box){ box.style.display = "block"; box.innerHTML = '<div style="color:#8a8a86">正在分析题目，请稍候…</div>'; }
+  try{
+    fetch("/api/topic-analysis", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ topic: topic })
+    }).then(function(r){ return r.json(); }).then(function(data){
+      if(btn) btn.disabled = false;
+      if(data && data.ok && data.analysis){
+        renderTopicAnalysis(data.analysis);
+      } else {
+        if(box){ box.innerHTML = '<div style="color:#b3541e">题目分析失败，请检查网络或稍后重试。</div>'; }
+      }
+    }).catch(function(){
+      if(btn) btn.disabled = false;
+      if(box){ box.innerHTML = '<div style="color:#b3541e">题目分析失败，请检查网络或稍后重试。</div>'; }
+    });
+  }catch(e){
+    if(btn) btn.disabled = false;
+    if(box){ box.innerHTML = '<div style="color:#b3541e">题目分析失败，请检查网络或稍后重试。</div>'; }
+  }
+}
+
+// 绑定「分析题目」按钮
+(function(){
+  var btn = document.getElementById("topicAnalyzeBtn");
+  var input = document.getElementById("customTopic");
+  if(btn && input){
+    btn.addEventListener("click", function(){
+      var topic = input.value.trim();
+      if(!topic){ alert("请先输入或识别题目"); return; }
+      callTopicAnalysis(topic);
+    });
+  }
+})();
 
 // 检测安卓 + 非 Chrome，显示建议提示
 (function(){
