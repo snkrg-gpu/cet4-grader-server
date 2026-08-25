@@ -528,6 +528,11 @@ function gradeEssay(text, topic, issues){
 
   // 2. 文章结构（15分制）
   var paragraphs = text.split(/\n\s*\n/).filter(function(p){ return p.trim().length > 0; });
+  // 如果没有空行，但文本里有多个换行，按单个换行分段（兼容 OCR 重建文本无空行的情况）
+  if(paragraphs.length <= 1){
+    var lineParas = text.split(/\n+/).filter(function(p){ return p.trim().length > 0; });
+    if(lineParas.length >= 2){ paragraphs = lineParas; }
+  }
   var structScore = 10;
   if(paragraphs.length >= 3){ structScore = 13; }
   else if(paragraphs.length === 2){ structScore = 9; }
