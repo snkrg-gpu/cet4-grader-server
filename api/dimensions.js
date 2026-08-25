@@ -3,7 +3,7 @@
 // 输出: { ok: true, dims: { topic: {deduct, reason, advice}, struct: {...}, sent: {...}, logic: {...}, overall: {...} } }
 // 环境变量: DOUBAO_API_KEY, DOUBAO_ENDPOINT_ID
 
-const DOUBAO_API_KEY = proces…_KEY || '';
+const DOUBAO_API_KEY = process.env.DOUBAO_API_KEY || '';
 const DOUBAO_ENDPOINT_ID = process.env.DOUBAO_ENDPOINT_ID || '';
 const DOUBAO_BASE_URL = 'https://ark.cn-beijing.volces.com/api/v3';
 
