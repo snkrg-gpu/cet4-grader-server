@@ -1015,7 +1015,7 @@ var SAMPLES = {
 };
 
 // ===== 渲染结果 =====
-function renderResult(res, vocab, issues, topic, text, rewrite){
+function renderResult(res, vocab, issues, topic, text, rewrite, dimsResult){
   var band = getBand(res.total);
   var html = "";
 
@@ -1031,18 +1031,34 @@ function renderResult(res, vocab, issues, topic, text, rewrite){
   html += '</div></div>';
 
   // 五维度
-  html += '<div class="panel"><h3>五维度评分</h3><table class="dim-table">';
+  html += '<div class="panel"><h3>五维度评分（含扣分原因 & 优化建议）</h3><table class="dim-table">';
   var dims = [
-    ["审题", res.topicScore, res.topicNote],
-    ["文章结构", res.structScore, res.structNote],
-    ["句式表达", res.sentScore, res.sentNote],
-    ["内容逻辑", res.logicScore, res.logicNote],
-    ["整体连贯", res.overallScore, res.overallNote]
+    ["审题", res.topicScore, res.topicNote, "topic"],
+    ["文章结构", res.structScore, res.structNote, "struct"],
+    ["句式表达", res.sentScore, res.sentNote, "sent"],
+    ["内容逻辑", res.logicScore, res.logicNote, "logic"],
+    ["整体连贯", res.overallScore, res.overallNote, "overall"]
   ];
   dims.forEach(function(d){
     var pct = Math.round(d[1]/15*100);
+    var deduct = Math.round((15 - d[1]) * 10) / 10;
+    var ai = (dimsResult && dimsResult[d[3]]) || null;
     html += '<tr><td>' + d[0] + '</td><td class="num">' + d[1] + '/15</td>';
-    html += '<td><div class="bar"><i style="width:' + pct + '%"></i></div><div style="font-size:12px;color:#8a8a86;margin-top:4px">' + d[2] + '</div></td></tr>';
+    html += '<td><div class="bar"><i style="width:' + pct + '%"></i></div>';
+    html += '<div style="font-size:12px;color:#8a8a86;margin-top:4px">' + d[2] + '</div>';
+    // 扣分原因 + 优化建议（展开式）
+    if(deduct > 0){
+      html += '<div style="font-size:12px;margin-top:4px;color:#b3261e">扣 ' + deduct + ' 分</div>';
+      if(ai && ai.reason){
+        html += '<div style="font-size:12px;margin-top:2px;color:#444">原因：' + ai.reason + '</div>';
+      }
+      if(ai && ai.advice){
+        html += '<div style="font-size:12px;margin-top:2px;color:#2f6b4f">优化：' + ai.advice + '</div>';
+      }
+    } else {
+      html += '<div style="font-size:12px;margin-top:4px;color:#2f6b4f">满分</div>';
+    }
+    html += '</td></tr>';
   });
   html += '</table></div>';
 
@@ -1207,6 +1223,37 @@ function callRewriteAI(text, onDone){
   }
 }
 
+// 调用后端 /api/dimensions，用豆包大模型分析五维度扣分原因与优化建议
+function callDimensionsAI(text, topic, res, onDone){
+  try{
+    fetch("/api/dimensions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        text: text,
+        topic: topic || "",
+        dims: {
+          topicScore: res.topicScore,
+          structScore: res.structScore,
+          sentScore: res.sentScore,
+          logicScore: res.logicScore,
+          overallScore: res.overallScore
+        }
+      })
+    }).then(function(r){ return r.json(); }).then(function(data){
+      if(data && data.ok && data.dims){
+        onDone(data.dims);
+      } else {
+        onDone(null);
+      }
+    }).catch(function(){
+      onDone(null);
+    });
+  }catch(e){
+    onDone(null);
+  }
+}
+
 // ===== 事件 =====
 document.getElementById("essay").addEventListener("input", function(){
   var w = countWords(this.value);
@@ -1237,21 +1284,31 @@ document.getElementById("gradeBtn").addEventListener("click", function(){
   var needRewrite = (!topic || !SAMPLES[topic]);
   var grammarDone = false;
   var rewriteDone = !needRewrite; // 有题目时不需要润色，直接视为完成
+  var dimsDone = false;
   var aiIssues = null;
   var rewriteResult = null;
+  var dimsResult = null;
+  var baseRes = null;
+  var mergedIssues = null;
 
   function tryRender(){
-    if(!grammarDone || !rewriteDone) return;
-    var localIssues = findGrammarIssues(text);
-    var merged = (aiIssues && aiIssues.length > 0) ? mergeIssues(localIssues, aiIssues) : localIssues;
-    var res = gradeEssay(text, topic, merged);
-    renderResult(res, vocab, merged, topic, text, rewriteResult);
+    if(!grammarDone || !rewriteDone || !dimsDone) return;
+    renderResult(baseRes, vocab, mergedIssues, topic, text, rewriteResult, dimsResult);
     document.getElementById("gradeBtn").disabled = false;
   }
 
   callGrammarAI(text, function(issues){
     aiIssues = issues;
     grammarDone = true;
+    var localIssues = findGrammarIssues(text);
+    mergedIssues = (aiIssues && aiIssues.length > 0) ? mergeIssues(localIssues, aiIssues) : localIssues;
+    baseRes = gradeEssay(text, topic, mergedIssues);
+    // 语法分析完成，用五维度分发起 dimensions 分析
+    callDimensionsAI(text, topic, baseRes, function(dims){
+      dimsResult = dims;
+      dimsDone = true;
+      tryRender();
+    });
     tryRender();
   });
 
