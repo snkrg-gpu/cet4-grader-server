@@ -1517,7 +1517,7 @@ function rebuildParagraphs(data){
   }
 
   // 否则（整篇几乎无空行），用语义分段兜底
-  var paraStarters = /^(on\s+one\s+hand|on\s+the\s+other\s+hand|however|moreover|furthermore|in\s+addition|besides|nevertheless|for\s+example|for\s+instance|take\s+\w+|therefore|in\s+conclusion|to\s+sum\s+up|in\s+a\s+word|finally|last\s+but\s+not\s+least|first\s+and\s+foremost|firstly|secondly|thirdly|with\s+the\s+rapid|undoubtedly|admittedly|obviously)/i;
+  var paraStarters = /^(on\s+(the\s+)?one\s+hand|on\s+(the\s+)?other\s+hand|however|moreover|furthermore|in\s+addition|besides|nevertheless|for\s+example|for\s+instance|take\s+\w+|therefore|in\s+conclusion|to\s+sum\s+up|in\s+a\s+word|finally|last\s+but\s+not\s+least|first\s+and\s+foremost|firstly|secondly|thirdly|with\s+the\s+rapid|undoubtedly|admittedly|obviously|i\s+firmly\s+believe|i\s+believe|i\s+think|i\s+am\s+convinced|i\s+hold\s+the\s+view|in\s+my\s+opinion|from\s+my\s+perspective|as\s+far\s+as\s+i\s+am\s+concerned|in\s+my\s+view|personally|first\s+of\s+all|to\s+begin\s+with|what's\s+more|lastly)/i;
   var out = [lines[0].text];
   for(var k = 1; k < lines.length; k++){
     if(paraStarters.test(lines[k].text)){
